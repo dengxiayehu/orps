@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 2.6)
+
+ADD_SUBDIRECTORY(yasm)
+ADD_SUBDIRECTORY(jsoncpp)
+ADD_SUBDIRECTORY(protobuf)
+ADD_SUBDIRECTORY(boringssl)
+ADD_SUBDIRECTORY(libjpeg_turbo)
+ADD_SUBDIRECTORY(libsrtp)
+ADD_SUBDIRECTORY(libvpx)
+ADD_SUBDIRECTORY(libyuv)
+ADD_SUBDIRECTORY(openmax_dl/dl)
+ADD_SUBDIRECTORY(opus)
+ADD_SUBDIRECTORY(usrsctp)
