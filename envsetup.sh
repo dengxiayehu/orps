@@ -31,12 +31,14 @@ function gettop() {
     fi
   fi
 }
+export -f gettop
 
-export WEBRTC_ROOT=$(gettop)/contrib/webrtc/src
+function exit_msg() {
+  echo $@
+  exit 1
+}
+export -f exit_msg
 
-export LIBOMXIL_BELLAGIO_ROOT=$(gettop)/contrib/libomxil-bellagio-0.9.3
-export BELLAGIO_INSTALL_DIR="$LIBOMXIL_BELLAGIO_ROOT/build"
-export PATH=$BELLAGIO_INSTALL_DIR/bin:$PATH
-export LD_LIBRARY_PATH=$BELLAGIO_INSTALL_DIR/lib:$LD_LIBRARY_PATH
-export BELLAGIO_SEARCH_PATH=$BELLAGIO_INSTALL_DIR/lib/bellagio/:$BELLAGIO_INSTALL_DIR/lib/extern_omxcomp/lib/:$BELLAGIO_INSTALL_DIR/lib/
-export PKG_CONFIG_PATH=$BELLAGIO_INSTALL_DIR/lib/pkgconfig/:/usr/local/lib/pkgconfig/:/usr/lib/pkgconfig/:$PKG_CONFIG_PATH
+export CONTRIB_DIR="$(gettop)/contrib"
+export CONTRIB_LINUX_INSTALL_DIR="$CONTRIB_DIR/install"
+export WEBRTC_ROOT="$CONTRIB_DIR/webrtc/src"
