@@ -7,6 +7,9 @@ CONTRIB_LINUX_SRC_DIR="$CONTRIB_DIR/contrib-linux"
 NO_OUTPUT="1>/dev/null 2>&1"
 
 TARS_HDLR_ARR=(
+"$TARBALLS_DIR/zlib-1.2.8.tar.gz:compile_zlib"
+"$TARBALLS_DIR/openssl-1.0.2g.tar.gz:compile_openssl"
+"$TARBALLS_DIR/librtmp.tar.bz2:compile_librtmp"
 "$TARBALLS_DIR/libomxil-bellagio-0.9.3.tgz:compile_libomxil_bellagio"
 "$CONTRIB_DIR/webrtc:compile_webrtc"
 )
@@ -14,6 +17,29 @@ TARS_HDLR_ARR=(
 [ ! -d "$TARBALLS_DIR" ] && \
   exit_msg "tarballs dir not found"
 [ ! -d "$CONTRIB_LINUX_SRC_DIR" ] && mkdir "$CONTRIB_LINUX_SRC_DIR"
+
+function compile_zlib() {
+  CFLAGS="-fPIC" ./configure --const --static --64 --prefix="$CONTRIB_LINUX_INSTALL_DIR" &&
+    make $MKFLAGS &&
+    make install && return 0
+  return 1
+}
+
+function compile_openssl() {
+  ./Configure linux-x86_64 -fPIC threads zlib no-shared --prefix="$CONTRIB_LINUX_INSTALL_DIR" --with-zlib-lib="$CONTRIB_LINUX_INSTALL_DIR/lib" --with-zlib-include="$CONTRIB_LINUX_INSTALL_DIR/include" &&
+    make depend &&
+    make &&
+    make install && return 0
+  return 1
+}
+
+function compile_librtmp() {
+  make $MKFLAGS \
+    INC=-I"$CONTRIB_LINUX_INSTALL_DIR/include" XLDFLAGS="-L$CONTRIB_LINUX_INSTALL_DIR/lib" \
+    prefix="$CONTRIB_LINUX_INSTALL_DIR" \
+    install && return 0
+  return 1
+}
 
 function compile_libomxil_bellagio() {
   export PATH=$CONTRIB_LINUX_INSTALL_DIR/bin:$PATH
