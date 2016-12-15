@@ -39,6 +39,34 @@ function exit_msg() {
 }
 export -f exit_msg
 
+# usage: c 2.. is equals to c ../..
+function c {
+  if [ $# -eq 0 ]; then
+    cd
+    return $?
+  fi
+
+  if [ $# -ne 1 ]; then
+    echo "usage: `basename $0` <dir>"
+    return 1
+  fi
+
+  local _dir="$1"
+  local _up_num=`echo $_dir | sed -e 's/^\([1-9][0-9]*\)*\.\.$/\1/'`
+  if [ $(( ${#_up_num} + 2 )) -eq ${#_dir} ]; then
+    local _dst_dir=".."
+    while [ $(( _up_num-- )) -gt 1 ]
+    do
+      _dst_dir=$_dst_dir/..
+    done
+    cd $_dst_dir
+  else
+    cd $_dir
+  fi
+  return $?
+}
+export -f c
+
 export CONTRIB_DIR="$(gettop)/contrib"
 export CONTRIB_LINUX_INSTALL_DIR="$CONTRIB_DIR/install"
 export WEBRTC_ROOT="$CONTRIB_DIR/webrtc/src"
