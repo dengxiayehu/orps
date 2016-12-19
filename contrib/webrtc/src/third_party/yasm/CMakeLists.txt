@@ -232,20 +232,6 @@ SET_TARGET_PROPERTIES(${TARGET} PROPERTIES LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -
 
 ########################################################################
 
-SET(TARGET generate_files)
-
-ADD_CUSTOM_TARGET(${TARGET}
-  COMMAND mkdir -p ${OUT}/gen/third_party/yasm
-  COMMAND ${TARGET_ROOT}/source/patched-yasm/modules/arch/x86/gen_x86_insn.py ${OUT}/gen/third_party/yasm
-  COMMAND ${OUT}/genversion ${OUT}/gen/third_party/yasm/version.mac
-  COMMAND ${OUT}/genperf ${WEBRTC_ROOT}/third_party/yasm/source/patched-yasm/modules/arch/x86/x86cpu.gperf ${OUT}/gen/third_party/yasm/x86cpu.c
-  COMMAND ${OUT}/genperf ${WEBRTC_ROOT}/third_party/yasm/source/patched-yasm/modules/arch/x86/x86regtmod.gperf ${OUT}/gen/third_party/yasm/x86regtmod.c
-  )
-
-ADD_DEPENDENCIES(${TARGET} genversion genperf)
-
-########################################################################
-
 SET(TARGET yasm)
 
 SET(C_FLAGS "-fstack-protector --param=ssp-buffer-size=4 -pthread -fno-strict-aliasing -Wno-unused-parameter -Wno-missing-field-initializers -pipe -fPIC -std=gnu99 -ansi -pedantic -Wno-format -Wno-unused-result -Wno-char-subscripts -Wno-unneeded-internal-declaration -Wno-covered-switch-default -Wno-c++11-narrowing -Wno-deprecated-register -Wno-inconsistent-missing-override -Wno-incompatible-pointer-types -O0 -g -funwind-tables -gsplit-dwarf")
@@ -341,15 +327,22 @@ TARGET_LINK_LIBRARIES(${TARGET} ${OUT}/libgenperf_libs.a)
 ADD_CUSTOM_COMMAND(
   OUTPUT ${OUT}/gen/third_party/yasm/x86cpu.c
          ${OUT}/gen/third_party/yasm/x86regtmod.c
-  DEPENDS generate_files
-  )
-
-ADD_CUSTOM_COMMAND(
-  OUTPUT ${OUT}/geni/third_party/yasm/nasm-macros.c
+         ${OUT}/geni/third_party/yasm/nasm-macros.c
+         ${OUT}/geni/third_party/yasm/nasm-version.c
+         ${OUT}/geni/third_party/yasm/win64-gas.c
+         ${OUT}/geni/third_party/yasm/win64-nasm.c
+         ${OUT}/geni/third_party/yasm/license.c
          ${OUT}/geni/third_party/yasm/lc3bid.c
          ${OUT}/geni/third_party/yasm/module.c
+         ${OUT}/geni/third_party/yasm/x86insn_nasm.c
+         ${OUT}/geni/third_party/yasm/x86insn_gas.c
          ${OUT}/geni/third_party/yasm/gas-token.c
          ${OUT}/geni/third_party/yasm/nasm-token.c
+  COMMAND mkdir -p ${OUT}/gen/third_party/yasm
+  COMMAND ${TARGET_ROOT}/source/patched-yasm/modules/arch/x86/gen_x86_insn.py ${OUT}/gen/third_party/yasm
+  COMMAND ${OUT}/genversion ${OUT}/gen/third_party/yasm/version.mac
+  COMMAND ${OUT}/genperf ${WEBRTC_ROOT}/third_party/yasm/source/patched-yasm/modules/arch/x86/x86cpu.gperf ${OUT}/gen/third_party/yasm/x86cpu.c
+  COMMAND ${OUT}/genperf ${WEBRTC_ROOT}/third_party/yasm/source/patched-yasm/modules/arch/x86/x86regtmod.gperf ${OUT}/gen/third_party/yasm/x86regtmod.c
   COMMAND mkdir -p ${OUT}/geni/third_party/yasm
   COMMAND ${OUT}/genmacro ${OUT}/geni/third_party/yasm/nasm-macros.c nasm_standard_mac source/patched-yasm/modules/parsers/nasm/nasm-std.mac
   COMMAND ${OUT}/genmacro ${OUT}/geni/third_party/yasm/nasm-version.c nasm_version_mac ${OUT}/gen/third_party/yasm/version.mac
@@ -363,6 +356,7 @@ ADD_CUSTOM_COMMAND(
   COMMAND ${OUT}/re2c -b -o ${OUT}/geni/third_party/yasm/gas-token.c ${WEBRTC_ROOT}/third_party/yasm/source/patched-yasm/modules/parsers/gas/gas-token.re
   COMMAND ${OUT}/re2c -b -o ${OUT}/geni/third_party/yasm/nasm-token.c ${WEBRTC_ROOT}/third_party/yasm/source/patched-yasm/modules/parsers/nasm/nasm-token.re
   WORKING_DIRECTORY ${TARGET_ROOT}
+  DEPENDS genversion genperf
   )
 
 TARGET_INCLUDE_DIRECTORIES(${TARGET} PRIVATE
