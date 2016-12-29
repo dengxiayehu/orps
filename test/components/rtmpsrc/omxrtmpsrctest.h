@@ -1,6 +1,10 @@
 #ifndef _OMXRTMPSRCTEST_H_
 #define _OMXRTMPSRCTEST_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -14,9 +18,7 @@
 #include <OMX_Video.h>
 #include <OMX_Audio.h>
 
-extern "C" {
 #include <tsemaphore.h>
-}
 #include <user_debug_levels.h>
 
 typedef struct appPrivateType {
@@ -59,5 +61,9 @@ OMX_ERRORTYPE clocksrcFillBufferDone(
     OMX_OUT OMX_HANDLETYPE hComponent,
     OMX_OUT OMX_PTR pAppData,
     OMX_OUT OMX_BUFFERHEADERTYPE *pBuffer);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* end of _OMXRTMPSRCTEST_H_ */
