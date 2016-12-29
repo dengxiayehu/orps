@@ -6,7 +6,7 @@ SET(TARGET_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
 
 SET(C_FLAGS "-fstack-protector --param=ssp-buffer-size=4 -pthread -fno-strict-aliasing -Wno-unused-parameter -Wno-missing-field-initializers -pipe -fPIC -Wno-unused-local-typedefs -Wno-format -Wno-unused-result -m64 -march=x86-64 -O0 -g -funwind-tables -gsplit-dwarf")
 
-SET(CXX_FLAGS "${C_FLAGS} -fno-exceptions -fno-rtti -fno-threadsafe-statics -Wno-deprecated -std=gnu++11 -Wno-narrowing -Wno-literal-suffix")
+SET(CXX_FLAGS "${C_FLAGS} -fno-exceptions -fno-rtti -fno-threadsafe-statics -Wno-deprecated -Wno-narrowing -Wno-literal-suffix")
 
 SET(SOURCES
   ${WEBRTC_ROOT}/third_party/boringssl/err_data.c
