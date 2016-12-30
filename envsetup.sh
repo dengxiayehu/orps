@@ -67,6 +67,7 @@ function c {
 }
 export -f c
 
+export TARGET_OUT="$(gettop)/build/out"
 export CONTRIB_DIR="$(gettop)/contrib"
 export CONTRIB_LINUX_INSTALL_DIR="$CONTRIB_DIR/install"
 export WEBRTC_ROOT="$CONTRIB_DIR/webrtc/src"

@@ -1,9 +1,10 @@
 #include <st_static_component_loader.h>
 #include <omx_rtmpsrc_component.h>
 
-extern "C"
 int omx_component_library_Setup(stLoaderComponentType **stComponents)
 {
+  int i;
+
   DEBUG(DEB_LEV_FUNCTION_NAME, "In %s\n", __func__);
 
   if (stComponents == NULL) {
@@ -28,13 +29,13 @@ int omx_component_library_Setup(stLoaderComponentType **stComponents)
   stComponents[0]->name_specific = (char **) calloc(stComponents[0]->name_specific_length,sizeof(char *));
   stComponents[0]->role_specific = (char **) calloc(stComponents[0]->name_specific_length,sizeof(char *));
 
-  for (int i = 0; i < stComponents[0]->name_specific_length; ++i) {
+  for (i = 0; i < stComponents[0]->name_specific_length; ++i) {
     stComponents[0]->name_specific[i] = (char *) calloc(OMX_MAX_STRINGNAME_SIZE, 1);
     if (stComponents[0]->name_specific == NULL) {
       return OMX_ErrorInsufficientResources;
     }
   }
-  for (int i = 0; i < stComponents[0]->name_specific_length; ++i) {
+  for (i = 0; i < stComponents[0]->name_specific_length; ++i) {
     stComponents[0]->role_specific[i] = (char *) calloc(OMX_MAX_STRINGNAME_SIZE, 1);
     if (stComponents[0]->role_specific == NULL) {
       return OMX_ErrorInsufficientResources;

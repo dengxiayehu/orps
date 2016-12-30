@@ -1,19 +1,17 @@
 cmake_minimum_required(VERSION 2.6)
 
 SET(TARGET orps)
-SET(TARGET_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
 
 PROJECT(${TARGET})
 
-SET(OUT ${PROJECT_BINARY_DIR}/out)
-SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${OUT})
-SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${OUT})
-SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${OUT})
+SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY "$ENV{TARGET_OUT}")
+SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "$ENV{TARGET_OUT}")
+SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY "$ENV{TARGET_OUT}")
 
-SET(CONTRIB_INCLUDE "${TARGET_ROOT}/contrib/install/include")
-SET(CONTRIB_LIBRARY "${TARGET_ROOT}/contrib/install/lib")
+SET(CONTRIB_INCLUDE "$ENV{CONTRIB_LINUX_INSTALL_DIR}/include")
+SET(CONTRIB_LIBRARY "$ENV{CONTRIB_LINUX_INSTALL_DIR}/lib")
 
-SET(COMMON_COMPILE_FLAGS "-fstack-protector --param=ssp-buffer-size=4 -fno-strict-aliasing -Wno-unused-parameter -Wno-missing-field-initializers -pipe -fPIC -Wno-unused-local-typedefs -Wno-format -Wno-unused-result -m64 -march=x86-64 -O0 -g -funwind-tables -gsplit-dwarf -fno-exceptions -fno-rtti -fno-threadsafe-statics -Wno-deprecated -Wno-narrowing -Wno-literal-suffix")
+SET(COMMON_COMPILE_FLAGS "-fstack-protector --param=ssp-buffer-size=4 -fno-strict-aliasing -Wno-unused-parameter -Wno-missing-field-initializers -pipe -fPIC -Wno-unused-local-typedefs -Wno-format -Wno-unused-result -m64 -march=x86-64 -O0 -g -funwind-tables -gsplit-dwarf -fno-exceptions -Wno-deprecated -Wno-narrowing")
 
 SET(SOURCES
   src/orps.cc

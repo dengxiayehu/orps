@@ -7,4 +7,7 @@ if [ -z "$WEBRTC_ROOT" ]; then
 fi
 
 bash contrib/compile-contrib.sh
+
 cd build && cmake .. && make VERBOSE=1
+
+$CONTRIB_LINUX_INSTALL_DIR/bin/omxregister-bellagio $CONTRIB_LINUX_INSTALL_DIR/lib/bellagio:$TARGET_OUT

@@ -332,3 +332,8 @@ static OMX_ERRORTYPE omx_rtmpsrc_component_GetExtensionIndex(
   }
   return OMX_ErrorNone;
 }
+
+OMX_ERRORTYPE omx_rtmpsrc_component_MessageHandler(OMX_COMPONENTTYPE *openmaxStandComp, internalRequestMessageType *message)
+{
+  return OMX_ErrorNone;
+}
