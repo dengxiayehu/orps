@@ -7,3 +7,4 @@ if [ -z "$WEBRTC_ROOT" ]; then
 fi
 
 bash contrib/compile-contrib.sh
+cd build && cmake .. && make VERBOSE=1

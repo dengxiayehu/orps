@@ -1,6 +1,10 @@
 #ifndef _OMX_RTMPSRC_COMPONENT_H_
 #define _OMX_RTMPSRC_COMPONENT_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <OMX_Types.h>
 #include <OMX_Component.h>
 #include <OMX_Core.h>
@@ -24,5 +28,9 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Destructor(OMX_COMPONENTTYPE *openmaxStandCo
 OMX_ERRORTYPE omx_rtmpsrc_component_MessageHandler(OMX_COMPONENTTYPE *, internalRequestMessageType *);
 OMX_ERRORTYPE omx_rtmpsrc_component_Init(OMX_COMPONENTTYPE *openmaxStandComp);
 OMX_ERRORTYPE omx_rtmpsrc_component_Deinit(OMX_COMPONENTTYPE *openmaxStandComp);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* end of _OMX_RTMPSRC_COMPONENT_H_ */
