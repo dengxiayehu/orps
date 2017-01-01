@@ -40,7 +40,7 @@ function exit_msg() {
 export -f exit_msg
 
 # usage: c 2.. is equals to c ../..
-function c {
+function c() {
   if [ $# -eq 0 ]; then
     cd
     return $?
@@ -66,6 +66,26 @@ function c {
   return $?
 }
 export -f c
+
+function croot() {
+  local T=$(gettop)
+  if [ "$T" ]; then
+    \cd "$T"
+  else
+    echo "Couldn't locate the top of the tree"
+  fi
+}
+export -f croot
+
+function jgrep() {
+  find . -name .repo -prune -o -name .git -prune -o  -type f -name "*\.java" -print0 | xargs -0 grep --color -n "$@"
+}
+export -f jgrep
+
+function cgrep() {
+  find . -name .repo -prune -o -name .git -prune -o -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' \) -print0 | xargs -0 grep --color -n "$@"
+}
+export -f cgrep
 
 export TARGET_OUT="$(gettop)/build/out"
 export CONTRIB_DIR="$(gettop)/contrib"
