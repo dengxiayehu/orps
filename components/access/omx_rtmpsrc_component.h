@@ -18,9 +18,8 @@ extern "C" {
 
 DERIVEDCLASS(omx_rtmpsrc_component_PrivateType, omx_base_source_PrivateType)
 #define omx_rtmpsrc_component_PrivateType_FIELDS omx_base_source_PrivateType_FIELDS \
-  OMX_TIME_CONFIG_TIMESTAMPTYPE   sTimeStamp; \
-  OMX_BUFFERHEADERTYPE           *pTmpOutputBuffer; \
-  OMX_STRING                      sInputUrl;
+  OMX_BUFFERHEADERTYPE *pTmpOutputBuffer; \
+  OMX_STRING sInputUrl;
 ENDCLASS(omx_rtmpsrc_component_PrivateType)
 
 OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *openmaxStandComp, OMX_STRING cComponentName);
@@ -28,6 +27,30 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Destructor(OMX_COMPONENTTYPE *openmaxStandCo
 OMX_ERRORTYPE omx_rtmpsrc_component_MessageHandler(OMX_COMPONENTTYPE *, internalRequestMessageType *);
 OMX_ERRORTYPE omx_rtmpsrc_component_Init(OMX_COMPONENTTYPE *openmaxStandComp);
 OMX_ERRORTYPE omx_rtmpsrc_component_Deinit(OMX_COMPONENTTYPE *openmaxStandComp);
+
+void omx_rtmpsrc_component_BufferMgmtCallback(
+    OMX_COMPONENTTYPE *openmaxStandComp,
+    OMX_BUFFERHEADERTYPE *pOutputBuffer);
+
+OMX_ERRORTYPE omx_rtmpsrc_component_SetParameter(
+    OMX_IN OMX_HANDLETYPE hComponent,
+    OMX_IN OMX_INDEXTYPE nParamIndex,
+    OMX_IN OMX_PTR ComponentParameterStructure);
+
+OMX_ERRORTYPE omx_rtmpsrc_component_GetParameter(
+    OMX_IN OMX_HANDLETYPE hComponent,
+    OMX_IN OMX_INDEXTYPE nParamIndex,
+    OMX_INOUT OMX_PTR ComponentParameterStructure);
+
+OMX_ERRORTYPE omx_rtmpsrc_component_GetConfig(
+    OMX_IN OMX_HANDLETYPE hComponent,
+    OMX_IN OMX_INDEXTYPE nIndex,
+    OMX_IN OMX_PTR pComponentConfigStructure);
+
+OMX_ERRORTYPE omx_rtmpsrc_component_GetExtensionIndex(
+    OMX_IN OMX_HANDLETYPE hComponent,
+    OMX_IN OMX_STRING cParameterName,
+    OMX_OUT OMX_INDEXTYPE *pIndexType);
 
 #ifdef __cplusplus
 }

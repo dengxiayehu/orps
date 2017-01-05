@@ -12,31 +12,12 @@
 
 static OMX_U32 noRtmpsrcInstance = 0;
 
-static void omx_rtmpsrc_component_BufferMgmtCallback(OMX_COMPONENTTYPE *openmaxStandComp, OMX_BUFFERHEADERTYPE *pOutputBuffer);
-static OMX_ERRORTYPE omx_rtmpsrc_component_SetParameter(
-    OMX_IN OMX_HANDLETYPE hComponent,
-    OMX_IN OMX_INDEXTYPE nParamIndex,
-    OMX_IN OMX_PTR ComponentParameterStructure);
-static OMX_ERRORTYPE omx_rtmpsrc_component_GetParameter(
-    OMX_IN OMX_HANDLETYPE hComponent,
-    OMX_IN OMX_INDEXTYPE nParamIndex,
-    OMX_INOUT OMX_PTR ComponentParameterStructure);
-static OMX_ERRORTYPE omx_rtmpsrc_component_SetConfig(
-    OMX_IN OMX_HANDLETYPE hComponent,
-    OMX_IN OMX_INDEXTYPE nIndex,
-    OMX_IN OMX_PTR pComponentConfigStructure);
-static OMX_ERRORTYPE omx_rtmpsrc_component_GetExtensionIndex(
-    OMX_IN OMX_HANDLETYPE hComponent,
-    OMX_IN OMX_STRING cParameterName,
-    OMX_OUT OMX_INDEXTYPE *pIndexType);
-
 OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *openmaxStandComp, OMX_STRING cComponentName)
 {
   OMX_ERRORTYPE omxErr = OMX_ErrorNone;
+  omx_rtmpsrc_component_PrivateType *omx_rtmpsrc_component_Private;
   omx_base_video_PortType *pPortV;
   omx_base_audio_PortType *pPortA;
-  omx_rtmpsrc_component_PrivateType *omx_rtmpsrc_component_Private;
-  OMX_U32 i;
 
   DEBUG(DEB_LEV_FUNCTION_NAME, "In %s\n", __func__);
 
@@ -102,14 +83,10 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *openmaxStandC
   pPortA = (omx_base_audio_PortType *) omx_rtmpsrc_component_Private->ports[AUDIO_PORT_INDEX];
 
   pPortV->sPortParam.nBufferSize = DEFAULT_OUT_BUFFER_SIZE;
-  pPortA->sPortParam.nBufferSize = DEFAULT_IN_BUFFER_SIZE;
+  pPortA->sPortParam.nBufferSize = DEFAULT_OUT_BUFFER_SIZE;
 
   omx_rtmpsrc_component_Private->BufferMgmtCallback = omx_rtmpsrc_component_BufferMgmtCallback;
   omx_rtmpsrc_component_Private->BufferMgmtFunction = omx_base_source_twoport_BufferMgmtFunction;
-
-  setHeader(&omx_rtmpsrc_component_Private->sTimeStamp, sizeof(OMX_TIME_CONFIG_TIMESTAMPTYPE));
-  omx_rtmpsrc_component_Private->sTimeStamp.nPortIndex = 0;
-  omx_rtmpsrc_component_Private->sTimeStamp.nTimestamp = 0x0;
 
   omx_rtmpsrc_component_Private->destructor = omx_rtmpsrc_component_Destructor;
   omx_rtmpsrc_component_Private->messageHandler = omx_rtmpsrc_component_MessageHandler;
@@ -121,7 +98,6 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *openmaxStandC
 
   openmaxStandComp->SetParameter = omx_rtmpsrc_component_SetParameter;
   openmaxStandComp->GetParameter = omx_rtmpsrc_component_GetParameter;
-  openmaxStandComp->SetConfig = omx_rtmpsrc_component_SetConfig;
   openmaxStandComp->GetExtensionIndex = omx_rtmpsrc_component_GetExtensionIndex;
 
   omx_rtmpsrc_component_Private->pTmpOutputBuffer = (OMX_BUFFERHEADERTYPE *) calloc(1, sizeof(OMX_BUFFERHEADERTYPE));
@@ -133,7 +109,7 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *openmaxStandC
   omx_rtmpsrc_component_Private->pTmpOutputBuffer->nAllocLen = DEFAULT_OUT_BUFFER_SIZE;
   omx_rtmpsrc_component_Private->pTmpOutputBuffer->nOffset = 0;
 
-  omx_rtmpsrc_component_Private->sInputUrl = (OMX_STRING) malloc(DEFAULT_URL_LENGTH);
+  omx_rtmpsrc_component_Private->sInputUrl = (OMX_STRING) calloc(DEFAULT_URL_LENGTH, 1);
   if (!omx_rtmpsrc_component_Private->sInputUrl) {
     return OMX_ErrorInsufficientResources;
   }
@@ -143,7 +119,8 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *openmaxStandC
 
 OMX_ERRORTYPE omx_rtmpsrc_component_Destructor(OMX_COMPONENTTYPE *openmaxStandComp)
 {
-  omx_rtmpsrc_component_PrivateType *omx_rtmpsrc_component_Private = (omx_rtmpsrc_component_PrivateType *) openmaxStandComp->pComponentPrivate;
+  omx_rtmpsrc_component_PrivateType *omx_rtmpsrc_component_Private =
+    (omx_rtmpsrc_component_PrivateType *) openmaxStandComp->pComponentPrivate;
   OMX_U32 i;
 
   DEBUG(DEB_LEV_FUNCTION_NAME, "In %s\n", __func__);
@@ -175,11 +152,11 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Destructor(OMX_COMPONENTTYPE *openmaxStandCo
   return omx_base_source_Destructor(openmaxStandComp);
 }
 
-static void omx_rtmpsrc_component_BufferMgmtCallback(OMX_COMPONENTTYPE *openmaxStandComp, OMX_BUFFERHEADERTYPE *pOutputBuffer)
+void omx_rtmpsrc_component_BufferMgmtCallback(OMX_COMPONENTTYPE *openmaxStandComp, OMX_BUFFERHEADERTYPE *pOutputBuffer)
 {
 }
 
-static OMX_ERRORTYPE omx_rtmpsrc_component_SetParameter(
+OMX_ERRORTYPE omx_rtmpsrc_component_SetParameter(
     OMX_IN OMX_HANDLETYPE hComponent,
     OMX_IN OMX_INDEXTYPE nParamIndex,
     OMX_IN OMX_PTR ComponentParameterStructure)
@@ -196,8 +173,8 @@ static OMX_ERRORTYPE omx_rtmpsrc_component_SetParameter(
     return OMX_ErrorBadParameter;
   }
 
-  switch (nParamIndex) {
-  case OMX_IndexVendorInputFilename:
+  switch ((long) nParamIndex) {
+  case OMX_IndexVendorInputUrl:
     nUrlLength = strlen(((char *) ComponentParameterStructure)) + 1;
     if (nUrlLength > DEFAULT_URL_LENGTH) {
       free(omx_rtmpsrc_component_Private->sInputUrl);
@@ -211,7 +188,7 @@ static OMX_ERRORTYPE omx_rtmpsrc_component_SetParameter(
   return omxErr;
 }
 
-static OMX_ERRORTYPE omx_rtmpsrc_component_GetParameter(
+OMX_ERRORTYPE omx_rtmpsrc_component_GetParameter(
     OMX_IN OMX_HANDLETYPE hComponent,
     OMX_IN OMX_INDEXTYPE nParamIndex,
     OMX_INOUT OMX_PTR ComponentParameterStructure)
@@ -232,7 +209,7 @@ static OMX_ERRORTYPE omx_rtmpsrc_component_GetParameter(
     return OMX_ErrorBadParameter;
   }
 
-  switch (nParamIndex) {
+  switch ((long) nParamIndex) {
   case OMX_IndexParamVideoInit:
     pVideoPortParam = (OMX_PORT_PARAM_TYPE *) ComponentParameterStructure;
     if ((omxErr = checkHeader(ComponentParameterStructure, sizeof(OMX_PORT_PARAM_TYPE))) != OMX_ErrorNone) {
@@ -271,7 +248,7 @@ static OMX_ERRORTYPE omx_rtmpsrc_component_GetParameter(
       return OMX_ErrorBadParameter;
     }
     break;
-  case OMX_IndexVendorInputFilename:
+  case OMX_IndexVendorInputUrl:
     strcpy((char *) ComponentParameterStructure, omx_rtmpsrc_component_Private->sInputUrl);
     break;
   default:
@@ -280,53 +257,15 @@ static OMX_ERRORTYPE omx_rtmpsrc_component_GetParameter(
   return omxErr;
 }
 
-static OMX_ERRORTYPE omx_rtmpsrc_component_SetConfig(
-    OMX_IN OMX_HANDLETYPE hComponent,
-    OMX_IN OMX_INDEXTYPE nIndex,
-    OMX_IN OMX_PTR pComponentConfigStructure)
-{
-  OMX_TIME_CONFIG_TIMESTAMPTYPE *sTimeStamp;
-  OMX_COMPONENTTYPE *openmaxStandComp = (OMX_COMPONENTTYPE *) hComponent;
-  omx_rtmpsrc_component_PrivateType *omx_rtmpsrc_component_Private = (omx_rtmpsrc_component_PrivateType *) openmaxStandComp->pComponentPrivate;
-  OMX_ERRORTYPE omxErr = OMX_ErrorNone;
-
-  DEBUG(DEB_LEV_SIMPLE_SEQ, "In %s Set config %i\n", __func__, nIndex);
-
-  switch (nIndex) {
-  case OMX_IndexConfigTimePosition:
-    sTimeStamp = (OMX_TIME_CONFIG_TIMESTAMPTYPE *) pComponentConfigStructure;
-    if (sTimeStamp->nPortIndex >= (omx_rtmpsrc_component_Private->sPortTypesParam[OMX_PortDomainVideo].nPorts +
-                                   omx_rtmpsrc_component_Private->sPortTypesParam[OMX_PortDomainAudio].nPorts +
-                                   omx_rtmpsrc_component_Private->sPortTypesParam[OMX_PortDomainOther].nPorts)) {
-      DEBUG(DEB_LEV_ERR, "Bad port index %i when the component has %i ports\n",
-            (int) sTimeStamp->nPortIndex, omx_rtmpsrc_component_Private->sPortTypesParam[OMX_PortDomainVideo].nPorts +
-                                          omx_rtmpsrc_component_Private->sPortTypesParam[OMX_PortDomainAudio].nPorts +
-                                          omx_rtmpsrc_component_Private->sPortTypesParam[OMX_PortDomainOther].nPorts);
-      return OMX_ErrorBadPortIndex;
-    }
-
-    omxErr = checkHeader(sTimeStamp, sizeof(OMX_TIME_CONFIG_TIMESTAMPTYPE));
-    if (omxErr != OMX_ErrorNone) {
-      return omxErr;
-    }
-
-    memcpy(&omx_rtmpsrc_component_Private->sTimeStamp, sTimeStamp, sizeof(OMX_TIME_CONFIG_TIMESTAMPTYPE));
-    break;
-  default:
-    return omx_base_component_SetConfig(hComponent, nIndex, pComponentConfigStructure);
-  }
-  return omxErr;
-}
-
-static OMX_ERRORTYPE omx_rtmpsrc_component_GetExtensionIndex(
+OMX_ERRORTYPE omx_rtmpsrc_component_GetExtensionIndex(
     OMX_IN OMX_HANDLETYPE hComponent,
     OMX_IN OMX_STRING cParameterName,
     OMX_OUT OMX_INDEXTYPE *pIndexType)
 {
   DEBUG(DEB_LEV_SIMPLE_SEQ, "In %s Get extension index %s\n", __func__, cParameterName);
 
-  if (!strcmp(cParameterName, "OMX.ST.index.param.inputfilename")) {
-    *pIndexType = (OMX_INDEXTYPE) OMX_IndexVendorInputFilename;
+  if (!strcmp(cParameterName, "OMX.ST.index.param.inputurl")) {
+    *pIndexType = (OMX_INDEXTYPE) OMX_IndexVendorInputUrl;
   } else {
     return OMX_ErrorBadParameter;
   }
@@ -334,6 +273,42 @@ static OMX_ERRORTYPE omx_rtmpsrc_component_GetExtensionIndex(
 }
 
 OMX_ERRORTYPE omx_rtmpsrc_component_MessageHandler(OMX_COMPONENTTYPE *openmaxStandComp, internalRequestMessageType *message)
+{
+  omx_rtmpsrc_component_PrivateType *omx_rtmpsrc_component_Private = (omx_rtmpsrc_component_PrivateType *) openmaxStandComp->pComponentPrivate;;
+  OMX_ERRORTYPE omxErr = OMX_ErrorNone;
+  OMX_STATETYPE oldState = omx_rtmpsrc_component_Private->state;
+
+  DEBUG(DEB_LEV_SIMPLE_SEQ, "In %s\n", __func__);
+
+  omxErr = omx_base_component_MessageHandler(openmaxStandComp, message);
+
+  if (message->messageType == OMX_CommandStateSet) {
+    if ((message->messageParam == OMX_StateExecuting) && (oldState == OMX_StateIdle)) {
+      omxErr = omx_rtmpsrc_component_Init(openmaxStandComp);
+      if (omxErr != OMX_ErrorNone) {
+        DEBUG(DEB_LEV_ERR, "In %s Rtmpsrc Init failed Error=%x\n",
+              __func__, omxErr);
+        return omxErr;
+      }
+    } else if ((message->messageParam == OMX_StateIdle) && (oldState == OMX_StateExecuting)) {
+      omxErr = omx_rtmpsrc_component_Deinit(openmaxStandComp);
+      if (omxErr != OMX_ErrorNone) {
+        DEBUG(DEB_LEV_ERR, "In %s Rtmpsrc Deinit failed Error=%x\n",
+              __func__, omxErr);
+        return omxErr;
+      }
+    }
+  }
+
+  return omxErr;
+}
+
+OMX_ERRORTYPE omx_rtmpsrc_component_Init(OMX_COMPONENTTYPE *openmaxStandComp)
+{
+  return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE omx_rtmpsrc_component_Deinit(OMX_COMPONENTTYPE *openmaxStandComp)
 {
   return OMX_ErrorNone;
 }

@@ -21,20 +21,22 @@ extern "C" {
 #include <tsemaphore.h>
 #include <user_debug_levels.h>
 
-typedef struct appPrivateType {
-  tsem_t *rtmpsrcEventSem;
-  tsem_t *clockEventSem;
-  tsem_t *videoschdEventSem;
-  tsem_t *eofSem;
-  OMX_HANDLETYPE rtmpsrchandle;
-  OMX_HANDLETYPE clockhandle;
-  OMX_HANDLETYPE videoschdhandle;
-} appPrivateType;
-
 #define VERSIONMAJOR    1
 #define VERSIONMINOR    1
 #define VERSIONREVISION 0
 #define VERSIONSTEP     0
+
+#define BUFFER_OUT_SIZE (640*480*3)
+
+typedef struct appPrivateType {
+  tsem_t *rtmpsrcEventSem;
+  tsem_t *clockEventSem;
+  tsem_t *eofSem;
+  OMX_HANDLETYPE rtmpsrchandle;
+  OMX_HANDLETYPE clocksrchandle;
+  OMX_HANDLETYPE videoschdhandle;
+  OMX_BUFFERHEADERTYPE *outBufferRtmpsrcVideo[2], *outBufferRtmpsrcAudio[2];
+} appPrivateType;
 
 OMX_ERRORTYPE rtmpsrcEventHandler(
     OMX_OUT OMX_HANDLETYPE hComponent,
