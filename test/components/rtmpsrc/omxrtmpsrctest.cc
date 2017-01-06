@@ -43,84 +43,86 @@ int main(int argc, const char *argv[])
 
   omxErr = OMX_Init();
   if (omxErr != OMX_ErrorNone) {
-    DEBUG(DEB_LEV_ERR, "The OpenMAX core can not be initialized. Exiting...\n");
+    LOGE("The OpenMAX core can not be initialized. Exiting...");
     exit(EXIT_FAILURE);
   } else {
-    DEBUG(DEFAULT_MESSAGES, "Omx core is initialized\n");
+    LOGI("Omx core is initialized");
   }
 
-  DEBUG(DEFAULT_MESSAGES, "------------------------------------\n");
+  LOGI("------------------------------------");
   test_OMX_ComponentNameEnum();
 
-  DEBUG(DEFAULT_MESSAGES, "Using rtmpsrc\n");
+  LOGI("Using rtmpsrc");
   omxErr = OMX_GetHandle(&appPriv->rtmpsrchandle, (OMX_STRING) RTMP_SRC, appPriv, &rtmpsrccallbacks);
   if (omxErr != OMX_ErrorNone) {
-    DEBUG(DEB_LEV_ERR, "Rtmpsrc Component Not Found\n");
+    LOGE("Rtmpsrc Component Not Found");
     exit(1);
   } else {
-    DEBUG(DEFAULT_MESSAGES, "Rtmpsrc Component Found\n");
+    LOGI("Rtmpsrc Component Found");
   }
 
   omxErr = OMX_GetHandle(&appPriv->clocksrchandle, (OMX_STRING) CLOCK_SRC, appPriv, &clocksrccallbacks);
   if (omxErr != OMX_ErrorNone) {
-    DEBUG(DEB_LEV_ERR, "Clocksrc Component Not Found\n");
+    LOGE("Clocksrc Component Not Found");
     exit(1);
   } else {
-    DEBUG(DEFAULT_MESSAGES, "Clocksrc Component Found\n");
+    LOGI("Clocksrc Component Found");
   }
 
   omxErr = OMX_SendCommand(appPriv->rtmpsrchandle, OMX_CommandPortEnable, 2, NULL);
   if (omxErr != OMX_ErrorNone) {
-    DEBUG(DEB_LEV_ERR, "Rtmpsrc Clock Port Enable failed\n");
+    LOGE("Rtmpsrc Clock Port Enable failed");
     exit(1);
   }
   tsem_down(appPriv->rtmpsrcEventSem);
-  DEBUG(DEFAULT_MESSAGES, "In %s Rtmpsrc Clock Port Enabled\n", __func__);
+  LOGI("In %s Rtmpsrc Clock Port Enabled", __func__);
 
   omxErr = OMX_GetExtensionIndex(appPriv->rtmpsrchandle, (OMX_STRING) "OMX.ST.index.param.inputurl",
                                  &eIndexParamUrl);
   if (omxErr != OMX_ErrorNone) {
-    DEBUG(DEB_LEV_ERR, "Error in get extension index\n");
+    LOGE("Error in get extension index");
     exit(1);
   } else {
     char url[1024];
-    DEBUG(DEFAULT_MESSAGES, "Url Param Index: %x\n", eIndexParamUrl);
+    LOGI("Url Param Index: %x", eIndexParamUrl);
     omxErr = OMX_SetParameter(appPriv->rtmpsrchandle, eIndexParamUrl, (OMX_PTR) TEST_RTMP_URL);
     if (omxErr != OMX_ErrorNone) {
-      DEBUG(DEB_LEV_ERR, "Error in input format\n");
+      LOGE("Error in input format");
       exit(1);
     }
     OMX_GetParameter(appPriv->rtmpsrchandle, eIndexParamUrl, url);
-    DEBUG(DEFAULT_MESSAGES, "Test url set to: \"%s\"\n", url);
+    LOGI("Test url set to: %s\"", url);
   }
 
   omxErr = OMX_SetupTunnel(appPriv->clocksrchandle, RTMPSRC_PORT_INDEX, appPriv->rtmpsrchandle, RTMPSRC_PORT_INDEX);
   if (omxErr != OMX_ErrorNone) {
-    DEBUG(DEB_LEV_ERR, "Setup Tunnel btwn clock and rtmpsrc Failed\n");
+    LOGE("Setup Tunnel btwn clock and rtmpsrc Failed");
     exit(1);
   } else {
-    DEBUG(DEB_LEV_ERR, "Setup Tunnel btwn clock and rtmpsrc successfully\n");
+    LOGI("Setup Tunnel btwn clock and rtmpsrc successfully");
   }
 
   omxErr = OMX_SendCommand(appPriv->rtmpsrchandle, OMX_CommandPortDisable, 2, NULL);
   if (omxErr != OMX_ErrorNone) {
-    DEBUG(DEB_LEV_ERR, "Rtmpsrc clock port disable failed\n");
+    LOGE("Rtmpsrc clock port disable failed");
     exit(1);
   }
   tsem_down(appPriv->rtmpsrcEventSem);
-  DEBUG(DEFAULT_MESSAGES, "In %s Rtmpsrc Clock Port Disabled\n", __func__);
+  LOGI("Rtmpsrc Clock Port Disabled");
   
   omxErr = OMX_SendCommand(appPriv->clocksrchandle, OMX_CommandPortDisable, 2, NULL);
   if (omxErr != OMX_ErrorNone) {
-    DEBUG(DEB_LEV_ERR, "Clocksrc component's clock port (tunneled to parser's clock port) disable failed\n\n");
+    LOGE("Clocksrc component's clock port (tunneled to parser's clock port) disable failed");
     exit(1);
   }
   tsem_down(appPriv->clockEventSem);
-  DEBUG(DEFAULT_MESSAGES, "In %s clocksrc Clock Port (connected to parser) Disabled\n", __func__);
+  LOGI("1:clocksrc Clock Port (connected to parser) Disabled");
+  LOGI("2:clocksrc Clock Port (connected to parser) Disabled");
+  LOGI("3:clocksrc Clock Port (connected to parser) Disabled");
 
   omxErr = OMX_SendCommand(appPriv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
   if (omxErr != OMX_ErrorNone) {
-    DEBUG(DEB_LEV_ERR, "Rtmpsrc Set to Idle Failed\n");
+    LOGE("Rtmpsrc Set to Idle Failed");
     exit(1);
   }
 
@@ -130,19 +132,19 @@ int main(int argc, const char *argv[])
   omxErr = OMX_AllocateBuffer(appPriv->rtmpsrchandle, &appPriv->outBufferRtmpsrcAudio[1], AUDIO_PORT_INDEX, appPriv, BUFFER_OUT_SIZE);
 
   tsem_down(appPriv->rtmpsrcEventSem);
-  DEBUG(DEFAULT_MESSAGES, "Rtmpsrc in idle state\n");
+  LOGI("Rtmpsrc in idle state");
 
   omxErr = OMX_SendCommand(appPriv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateExecuting, NULL);
   if (omxErr != OMX_ErrorNone) {
-    DEBUG(DEB_LEV_ERR, "Rtmpsrc Set to Executing Failed\n");
+    LOGE("Rtmpsrc Set to Executing Failed");
     exit(1);
   }
   tsem_down(appPriv->rtmpsrcEventSem);
-  DEBUG(DEFAULT_MESSAGES, "Rtmpsrc in Executing state\n");
+  LOGI("Rtmpsrc in Executing state");
 
   tsem_down(appPriv->rtmpsrcEventSem);
   tsem_down(appPriv->rtmpsrcEventSem);
-  DEBUG(DEFAULT_MESSAGES,"Rtmpsrc Port Settings Changed event \n");
+  LOGI("Rtmpsrc Port Settings Changed event ");
 
   return 0;
 }
@@ -153,19 +155,19 @@ static OMX_ERRORTYPE test_OMX_ComponentNameEnum(void)
   OMX_U32 index;
   OMX_ERRORTYPE omxErr = OMX_ErrorNone;
 
-  DEBUG(DEFAULT_MESSAGES, "GENERAL TEST %s\n", __func__);
+  LOGI("GENERAL TEST");
   name = (char *) malloc(OMX_MAX_STRINGNAME_SIZE);
   index = 0;
   for ( ; ; ) {
     omxErr = OMX_ComponentNameEnum(name, OMX_MAX_STRINGNAME_SIZE, index);
     if ((name != NULL) && (omxErr == OMX_ErrorNone)) {
-      DEBUG(DEFAULT_MESSAGES, "component %i is %s\n", index, name);
+      LOGI("component %i is %s", index, name);
     } else break;
     ++index;
   }
   free(name);
-  DEBUG(DEFAULT_MESSAGES, "GENERAL TEST %s result: %s\n",
-        __func__, omxErr == OMX_ErrorNoMore ? "PASS" : "FAILURE");
+  LOGI("GENERAL TEST result: %s",
+       omxErr == OMX_ErrorNoMore ? "PASS" : "FAILURE");
   return omxErr;
 }
 
@@ -179,51 +181,49 @@ OMX_ERRORTYPE rtmpsrcEventHandler(
 {
   appPrivateType *appPriv = (appPrivateType *) pAppData;
 
-  DEBUG(DEFAULT_MESSAGES, "Hi there, I am in %s callback\n", __func__);
-
   if (eEvent == OMX_EventCmdComplete) {
     if (Data1 == OMX_CommandStateSet) {
-      DEBUG(DEFAULT_MESSAGES, "Rtmpsrc State Changed in ");
+      LOGI("Rtmpsrc State Changed in ");
       switch ((int) Data2) {
       case OMX_StateInvalid:
-        DEBUG(DEFAULT_MESSAGES, "OMX_StateInvalid\n");
+        LOGI("OMX_StateInvalid");
         break;
       case OMX_StateLoaded:
-        DEBUG(DEFAULT_MESSAGES, "OMX_StateLoaded\n");
+        LOGI("OMX_StateLoaded");
         break;
       case OMX_StateIdle:
-        DEBUG(DEFAULT_MESSAGES, "OMX_StateIdle\n");
+        LOGI("OMX_StateIdle");
         break;
       case OMX_StateExecuting:
-        DEBUG(DEFAULT_MESSAGES, "OMX_StateExecuting\n");
+        LOGI("OMX_StateExecuting");
         break;
       case OMX_StatePause:
-        DEBUG(DEFAULT_MESSAGES, "OMX_StatePause\n");
+        LOGI("OMX_StatePause");
         break;
       case OMX_StateWaitForResources:
-        DEBUG(DEFAULT_MESSAGES, "OMX_StateWaitForResources\n");
+        LOGI("OMX_StateWaitForResources");
         break;
       }
       tsem_up(appPriv->rtmpsrcEventSem);
     } else if (Data1 == OMX_CommandPortEnable) {
-      DEBUG(DEFAULT_MESSAGES, "In %s Received Port Enable Event\n", __func__);
+      LOGI("Received Port Enable Event");
       tsem_up(appPriv->rtmpsrcEventSem);
     } else if (Data1 == OMX_CommandPortDisable) {
-      DEBUG(DEFAULT_MESSAGES, "In %s Received Port Disable Event\n", __func__);
+      LOGI("Received Port Disable Event");
       tsem_up(appPriv->rtmpsrcEventSem);
     } else if (Data1 == OMX_CommandFlush) {
-      DEBUG(DEFAULT_MESSAGES, "In %s Received Flush Event\n", __func__);
+      LOGI("Received Flush Event");
       tsem_up(appPriv->rtmpsrcEventSem);
     } else {
-      DEBUG(DEFAULT_MESSAGES, "In %s Received Event Event=%d Data1=%d Data2=%d\n",
-            __func__, eEvent, (int) Data1, (int) Data2);
+      LOGI("Received Event Event=%d Data1=%d Data2=%d",
+            eEvent, (int) Data1, (int) Data2);
     }
   } else if (eEvent == OMX_EventPortSettingsChanged) {
   } else if (eEvent == OMX_EventPortFormatDetected) {
-    DEBUG(DEFAULT_MESSAGES, "In %s Port Format Detected %x\n", __func__, (int) Data1);
+    LOGI("Port Format Detected %x", (int) Data1);
   } else {
-    DEBUG(DEFAULT_MESSAGES, "Param1 is %i\n", (int) Data1);
-    DEBUG(DEFAULT_MESSAGES, "Param2 is %i\n", (int) Data2);
+    LOGI("Param1 is %i", (int) Data1);
+    LOGI("Param2 is %i", (int) Data2);
   }
   return OMX_ErrorNone;
 }
@@ -246,52 +246,50 @@ OMX_ERRORTYPE clocksrcEventHandler(
 {
   appPrivateType *appPriv = (appPrivateType *) pAppData;
 
-  DEBUG(DEFAULT_MESSAGES, "Hi there, I am in the %s callback\n", __func__);
-
   if (eEvent == OMX_EventCmdComplete) {
     if (Data1 == OMX_CommandStateSet) {
-      DEBUG(DEFAULT_MESSAGES, "Clock Component State Changed in ");
+      LOGI("Clock Component State Changed in ");
       switch ((int) Data2) {
       case OMX_StateInvalid:
-        DEBUG(DEFAULT_MESSAGES, "OMX_StateInvalid\n");
+        LOGI("OMX_StateInvalid");
         break;
       case OMX_StateLoaded:
-        DEBUG(DEFAULT_MESSAGES, "OMX_StateLoaded\n");
+        LOGI("OMX_StateLoaded");
         break;
       case OMX_StateIdle:
-        DEBUG(DEFAULT_MESSAGES, "OMX_StateIdle\n");
+        LOGI("OMX_StateIdle");
         break;
       case OMX_StateExecuting:
-        DEBUG(DEFAULT_MESSAGES, "OMX_StateExecuting\n");
+        LOGI("OMX_StateExecuting");
         break;
       case OMX_StatePause:
-        DEBUG(DEFAULT_MESSAGES, "OMX_StatePause\n");
+        LOGI("OMX_StatePause");
         break;
       case OMX_StateWaitForResources:
-        DEBUG(DEFAULT_MESSAGES, "OMX_StateWaitForResources\n");
+        LOGI("OMX_StateWaitForResources");
         break;
       }
       tsem_up(appPriv->clockEventSem);
     } else if (Data1 == OMX_CommandPortEnable) {
-      DEBUG(DEFAULT_MESSAGES, "In %s Received Port Enable Event\n", __func__);
+      LOGI("Received Port Enable Event");
       tsem_up(appPriv->clockEventSem);
     } else if (Data1 == OMX_CommandPortDisable) {
-      DEBUG(DEFAULT_MESSAGES, "In %s Received Port Disable Event\n", __func__);
+      LOGI("Received Port Disable Event");
       tsem_up(appPriv->clockEventSem);
     } else {
-      DEBUG(DEFAULT_MESSAGES,"In %s Received Event Event=%d Data1=%d Data2=%d\n",
-            __func__, eEvent, (int) Data1, (int) Data2);
+      LOGI("Received Event Event=%d Data1=%d Data2=%d",
+            eEvent, (int) Data1, (int) Data2);
     }
   } else if(eEvent == OMX_EventPortSettingsChanged) {
-    DEBUG(DEFAULT_MESSAGES,"Clock src Port Setting Changed event\n");
+    LOGI("Clock src Port Setting Changed event");
     tsem_up(appPriv->clockEventSem);
   } else if(eEvent == OMX_EventPortFormatDetected) {
-    DEBUG(DEFAULT_MESSAGES, "In %s Port Format Detected %x\n", __func__, (int) Data1);
+    LOGI("Port Format Detected %x", (int) Data1);
   } else if(eEvent == OMX_EventBufferFlag) {
-    DEBUG(DEFAULT_MESSAGES, "In %s OMX_BUFFERFLAG_EOS\n", __func__);
+    LOGI("OMX_BUFFERFLAG_EOS");
   } else {
-    DEBUG(DEFAULT_MESSAGES, "Param1 is %i\n", (int) Data1);
-    DEBUG(DEFAULT_MESSAGES, "Param2 is %i\n", (int) Data2);
+    LOGI("Param1 is %i", (int) Data1);
+    LOGI("Param2 is %i", (int) Data2);
   }
 
   xlog::log_close();

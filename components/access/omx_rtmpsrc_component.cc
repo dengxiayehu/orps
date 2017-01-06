@@ -4,6 +4,8 @@
 #include <omx_base_clock_port.h>
 #include <omx_rtmpsrc_component.h>
 
+#include <xlog.h>
+
 #define VIDEO_PORT_INDEX 0
 #define AUDIO_PORT_INDEX 1
 #define CLOCK_PORT_INDEX 2
@@ -18,8 +20,6 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *openmaxStandC
   omx_rtmpsrc_component_PrivateType *compPriv;
   omx_base_video_PortType *pPortV;
   omx_base_audio_PortType *pPortA;
-
-  DEBUG(DEB_LEV_FUNCTION_NAME, "In %s\n", __func__);
 
   RM_RegisterComponent((char *) RTMPSRC_COMP_NAME, MAX_RTMPSRC_COMPONENTS);
 
@@ -120,8 +120,6 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Destructor(OMX_COMPONENTTYPE *openmaxStandCo
   omx_rtmpsrc_component_PrivateType *compPriv = (omx_rtmpsrc_component_PrivateType *) openmaxStandComp->pComponentPrivate;
   OMX_U32 i;
 
-  DEBUG(DEB_LEV_FUNCTION_NAME, "In %s\n", __func__);
-
   if (compPriv->sInputUrl) {
     free(compPriv->sInputUrl);
     compPriv->sInputUrl = NULL;
@@ -164,7 +162,7 @@ OMX_ERRORTYPE omx_rtmpsrc_component_SetParameter(
   OMX_COMPONENTTYPE *openmaxStandComp = (OMX_COMPONENTTYPE *) hComponent;
   omx_rtmpsrc_component_PrivateType *compPriv = (omx_rtmpsrc_component_PrivateType *) openmaxStandComp->pComponentPrivate;
 
-  DEBUG(DEB_LEV_SIMPLE_SEQ, "In %s Setting parameter %i\n", __func__, nParamIndex);
+  LOGI("Setting parameter %i", nParamIndex);
 
   if (ComponentParameterStructure == NULL) {
     return OMX_ErrorBadParameter;
@@ -200,7 +198,7 @@ OMX_ERRORTYPE omx_rtmpsrc_component_GetParameter(
   omx_base_video_PortType *pVideoPort = (omx_base_video_PortType *) compPriv->ports[OMX_BASE_SOURCE_OUTPUTPORT_INDEX];
   omx_base_audio_PortType *pAudioPort = (omx_base_audio_PortType *) compPriv->ports[OMX_BASE_SOURCE_OUTPUTPORT_INDEX_1];
 
-  DEBUG(DEB_LEV_SIMPLE_SEQ, "In %s Getting parameter %i\n", __func__, nParamIndex);
+  LOGI("Getting parameter %i", nParamIndex);
 
   if (ComponentParameterStructure == NULL) {
     return OMX_ErrorBadParameter;
@@ -259,7 +257,7 @@ OMX_ERRORTYPE omx_rtmpsrc_component_GetExtensionIndex(
     OMX_IN OMX_STRING cParameterName,
     OMX_OUT OMX_INDEXTYPE *pIndexType)
 {
-  DEBUG(DEB_LEV_SIMPLE_SEQ, "In %s Get extension index %s\n", __func__, cParameterName);
+  LOGI("Get extension index %s", cParameterName);
 
   if (!strcmp(cParameterName, "OMX.ST.index.param.inputurl")) {
     *pIndexType = (OMX_INDEXTYPE) OMX_IndexVendorInputUrl;
@@ -275,23 +273,19 @@ OMX_ERRORTYPE omx_rtmpsrc_component_MessageHandler(OMX_COMPONENTTYPE *openmaxSta
   OMX_ERRORTYPE omxErr = OMX_ErrorNone;
   OMX_STATETYPE oldState = compPriv->state;
 
-  DEBUG(DEB_LEV_FUNCTION_NAME, "In %s\n", __func__);
-
   omxErr = omx_base_component_MessageHandler(openmaxStandComp, message);
 
   if (message->messageType == OMX_CommandStateSet) {
     if ((message->messageParam == OMX_StateExecuting) && (oldState == OMX_StateIdle)) {
       omxErr = omx_rtmpsrc_component_Init(openmaxStandComp);
       if (omxErr != OMX_ErrorNone) {
-        DEBUG(DEB_LEV_ERR, "In %s Rtmpsrc Init failed Error=%x\n",
-              __func__, omxErr);
+        LOGE("Rtmpsrc Init failed Error=%x", omxErr);
         return omxErr;
       }
     } else if ((message->messageParam == OMX_StateIdle) && (oldState == OMX_StateExecuting)) {
       omxErr = omx_rtmpsrc_component_Deinit(openmaxStandComp);
       if (omxErr != OMX_ErrorNone) {
-        DEBUG(DEB_LEV_ERR, "In %s Rtmpsrc Deinit failed Error=%x\n",
-              __func__, omxErr);
+        LOGE("Rtmpsrc Deinit failed Error=%x\n", omxErr);
         return omxErr;
       }
     }
@@ -306,12 +300,8 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Init(OMX_COMPONENTTYPE *openmaxStandComp)
   omx_base_video_PortType *pPortV;
   omx_base_audio_PortType *pPortA;
 
-  DEBUG(DEB_LEV_FUNCTION_NAME, "In %s\n", __func__);
-
-#if 0
   compPriv->pRTMP = RTMP_Alloc();
   RTMP_Init(compPriv->pRTMP);
-#endif
   return OMX_ErrorNone;
 }
 
@@ -319,11 +309,7 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Deinit(OMX_COMPONENTTYPE *openmaxStandComp)
 {
   omx_rtmpsrc_component_PrivateType *compPriv = (omx_rtmpsrc_component_PrivateType *) openmaxStandComp->pComponentPrivate;
 
-  DEBUG(DEB_LEV_FUNCTION_NAME, "In %s\n", __func__);
-
-#if 0
   RTMP_Close(compPriv->pRTMP);
   RTMP_Free(compPriv->pRTMP);
-#endif
   return OMX_ErrorNone;
 }

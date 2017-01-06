@@ -34,10 +34,11 @@ function compile_openssl() {
 }
 
 function compile_librtmp() {
-  make $MKFLAGS \
-    INC=-I"$CONTRIB_LINUX_INSTALL_DIR/include" XLDFLAGS="-L$CONTRIB_LINUX_INSTALL_DIR/lib" \
-    prefix="$CONTRIB_LINUX_INSTALL_DIR" \
-    install && return 0
+  make clean && \
+    make $MKFLAGS \
+      INC=-I"$CONTRIB_LINUX_INSTALL_DIR/include" XCFLAGS="-fPIC" XLDFLAGS="-L$CONTRIB_LINUX_INSTALL_DIR/lib" \
+      prefix="$CONTRIB_LINUX_INSTALL_DIR" \
+      install && return 0
   return 1
 }
 
