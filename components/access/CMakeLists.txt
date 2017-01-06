@@ -5,7 +5,7 @@ SET(TARGET_DYN omxrtmpsrc_dynamic)
 
 SET(SOURCES
   library_entry_point.c
-  omx_rtmpsrc_component.c
+  omx_rtmpsrc_component.cc
   )
 
 SET_SOURCE_FILES_PROPERTIES(${SOURCES} PROPERTIES COMPILE_FLAGS "${COMMON_COMPONENT_COMPILE_FLAGS}")

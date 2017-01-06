@@ -12,6 +12,8 @@ extern "C" {
 #include <omx_base_source.h>
 #include <string.h>
 
+#include <librtmp/rtmp.h>
+
 #define RTMPSRC_COMP_NAME "OMX.st.rtmpsrc"
 #define RTMPSRC_COMP_ROLE "rtmpsrc"
 #define MAX_RTMPSRC_COMPONENTS 1
@@ -19,7 +21,8 @@ extern "C" {
 DERIVEDCLASS(omx_rtmpsrc_component_PrivateType, omx_base_source_PrivateType)
 #define omx_rtmpsrc_component_PrivateType_FIELDS omx_base_source_PrivateType_FIELDS \
   OMX_BUFFERHEADERTYPE *pTmpOutputBuffer; \
-  OMX_STRING sInputUrl;
+  OMX_STRING sInputUrl; \
+  RTMP *pRTMP;
 ENDCLASS(omx_rtmpsrc_component_PrivateType)
 
 OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *openmaxStandComp, OMX_STRING cComponentName);
