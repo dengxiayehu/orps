@@ -1,16 +1,15 @@
 #include <st_static_component_loader.h>
 #include <omx_rtmpsrc_component.h>
+#include <xlog.h>
 
+extern "C"
 int omx_component_library_Setup(stLoaderComponentType **stComponents)
 {
-  int i;
-
-  DEBUG(DEB_LEV_FUNCTION_NAME, "In %s\n", __func__);
-
   if (stComponents == NULL) {
-    DEBUG(DEB_LEV_FUNCTION_NAME, "Out of %s\n", __func__);
     return 1; // Return number of component/s
   }
+
+  LOGI("Try to setup access components ..");
 
   stComponents[0]->componentVersion.s.nVersionMajor = 1;
   stComponents[0]->componentVersion.s.nVersionMinor = 1;
@@ -29,13 +28,13 @@ int omx_component_library_Setup(stLoaderComponentType **stComponents)
   stComponents[0]->name_specific = (char **) calloc(stComponents[0]->name_specific_length,sizeof(char *));
   stComponents[0]->role_specific = (char **) calloc(stComponents[0]->name_specific_length,sizeof(char *));
 
-  for (i = 0; i < stComponents[0]->name_specific_length; ++i) {
+  for (OMX_U32 i = 0; i < stComponents[0]->name_specific_length; ++i) {
     stComponents[0]->name_specific[i] = (char *) calloc(OMX_MAX_STRINGNAME_SIZE, 1);
     if (stComponents[0]->name_specific == NULL) {
       return OMX_ErrorInsufficientResources;
     }
   }
-  for (i = 0; i < stComponents[0]->name_specific_length; ++i) {
+  for (OMX_U32 i = 0; i < stComponents[0]->name_specific_length; ++i) {
     stComponents[0]->role_specific[i] = (char *) calloc(OMX_MAX_STRINGNAME_SIZE, 1);
     if (stComponents[0]->role_specific == NULL) {
       return OMX_ErrorInsufficientResources;
@@ -45,6 +44,6 @@ int omx_component_library_Setup(stLoaderComponentType **stComponents)
   strcpy(stComponents[0]->name_specific[0], RTMPSRC_COMP_NAME);
   strcpy(stComponents[0]->role_specific[0], RTMPSRC_COMP_ROLE);
 
-  DEBUG(DEB_LEV_FUNCTION_NAME, "Out of %s\n", __func__);
+  LOGI("Setup access components ok");
   return 1;
 }

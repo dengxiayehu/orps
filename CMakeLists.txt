@@ -4,6 +4,8 @@ SET(TARGET orps)
 
 PROJECT(${TARGET})
 
+SET(TARGET_ROOT "${CMAKE_CURRENT_SOURCE_DIR}")
+
 SET(CMAKE_RUNTIME_OUTPUT_DIRECTORY "$ENV{TARGET_OUT}")
 SET(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "$ENV{TARGET_OUT}")
 SET(CMAKE_LIBRARY_OUTPUT_DIRECTORY "$ENV{TARGET_OUT}")
@@ -31,7 +33,34 @@ SET_TARGET_PROPERTIES(${TARGET} PROPERTIES LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -
 
 ########################################################################
 
-SET(COMMON_COMPONENT_INCLUDES ${CONTRIB_INCLUDE} ${CONTRIB_INCLUDE}/bellagio .)
+SET(TARGET xutil)
+
+SET(XUTIL_DIR "${TARGET_ROOT}/src/xutil")
+
+SET(SOURCES
+  src/xutil/amf.cc
+  src/xutil/ffmpeg.cc
+  src/xutil/xconfig.cc
+  src/xutil/xcurl.cc
+  src/xutil/xfile.cc
+  src/xutil/xlog.cc
+  src/xutil/xmedia.cc
+  src/xutil/xnet.cc
+  src/xutil/xuri.cc
+  src/xutil/xutil.cc
+  )
+
+SET_SOURCE_FILES_PROPERTIES(${SOURCES} PROPERTIES COMPILE_FLAGS "${COMMON_COMPILE_FLAGS}")
+
+ADD_LIBRARY(${TARGET} STATIC ${SOURCES})
+
+TARGET_INCLUDE_DIRECTORIES(${TARGET} PRIVATE
+  ${XUTIL_DIR}
+  )
+
+########################################################################
+
+SET(COMMON_COMPONENT_INCLUDES ${CONTRIB_INCLUDE} ${CONTRIB_INCLUDE}/bellagio ${XUTIL_DIR} .)
 SET(COMMON_COMPONENT_COMPILE_DEFINITIONS "HAVE_CONFIG_H;CONFIG_DEBUG_LEVEL=255")
 SET(COMMON_COMPONENT_COMPILE_FLAGS "${COMMON_COMPILE_FLAGS} -Wall")
 SET(COMMON_COMPONENT_LINK_FLAGS "-pthread -ldl")

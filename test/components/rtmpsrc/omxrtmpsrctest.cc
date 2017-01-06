@@ -1,3 +1,5 @@
+#include <xlog.h>
+
 #include "omxrtmpsrctest.h"
 
 #define RTMP_SRC    "OMX.st.rtmpsrc"
@@ -27,6 +29,8 @@ int main(int argc, const char *argv[])
   appPrivateType *appPriv;
   OMX_ERRORTYPE omxErr;
   OMX_INDEXTYPE eIndexParamUrl;
+
+  xlog::log_add_dst("./omxrtmpsrctest.log");
 
   appPriv = (appPrivateType *) malloc(sizeof(appPrivateType));
   appPriv->rtmpsrcEventSem = (tsem_t *) malloc(sizeof(tsem_t));
@@ -289,6 +293,8 @@ OMX_ERRORTYPE clocksrcEventHandler(
     DEBUG(DEFAULT_MESSAGES, "Param1 is %i\n", (int) Data1);
     DEBUG(DEFAULT_MESSAGES, "Param2 is %i\n", (int) Data2);
   }
+
+  xlog::log_close();
   return OMX_ErrorNone;
 }
 
