@@ -129,10 +129,10 @@ int set_log_level(log_level lvl)
   return 0;
 }
 
-int log_print(const char *curfile, const int lineno, const log_level lvl,
+int log_print(const char *curfile, const char *func, const int lineno, const log_level lvl,
               const char *fmt, ...)
 {
-  static const char *lvl_name[] = {"[DEBUG]", "[INFO]", "[WARN]", "[ERROR]"};
+  static const char *lvl_name[] = {"[D]", "[I]", "[W]", "[E]"};
   char buf[MaxLine];
 
   buf[0] = '\0';
@@ -155,11 +155,11 @@ int log_print(const char *curfile, const int lineno, const log_level lvl,
       snprintf(tid_buf, sizeof(tid_buf), "%ld ", gettid());
     }
 
-    int ret = snprintf(buf, sizeof(buf), "%s%s%s[%s:%d] %s ",
+    int ret = snprintf(buf, sizeof(buf), "%s%s%s[%s:%d (%s)] %s ",
                        color_level[lvl],
                        time_buf,
                        tid_buf,
-                       STR(basename_(curfile)), lineno,
+                       STR(basename_(curfile)), lineno, func,
                        lvl_name[lvl]);
 
     va_list ap;
@@ -176,8 +176,7 @@ int log_print(const char *curfile, const int lineno, const log_level lvl,
       fprintf(stderr, "%s", buf);
 
     if (writen(l->fd, buf, strlen(buf)) < 0) {
-      fprintf(stderr, "Write log failed: %s (cont)\n",
-              ERRNOMSG);
+      fprintf(stderr, "Write log failed: %s (cont)\n", ERRNOMSG);
       // Fall through
     }
   }

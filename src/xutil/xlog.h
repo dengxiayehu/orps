@@ -4,19 +4,19 @@
 #include <cstdarg>
 
 #define LOGD(fmt, ...) do { \
-  xlog::log_print(__FILE__, __LINE__, xlog::DEBUG, fmt, ##__VA_ARGS__); \
+  xlog::log_print(__FILE__, __func__, __LINE__, xlog::DEBUG, fmt, ##__VA_ARGS__); \
 } while (0)
 
 #define LOGI(fmt, ...) do { \
-  xlog::log_print(__FILE__, __LINE__, xlog::INFO, fmt, ##__VA_ARGS__); \
+  xlog::log_print(__FILE__, __func__, __LINE__, xlog::INFO, fmt, ##__VA_ARGS__); \
 } while (0)
 
 #define LOGW(fmt, ...) do { \
-  xlog::log_print(__FILE__, __LINE__, xlog::WARN, fmt, ##__VA_ARGS__); \
+  xlog::log_print(__FILE__, __func__, __LINE__, xlog::WARN, fmt, ##__VA_ARGS__); \
 } while (0)
 
 #define LOGE(fmt, ...) do { \
-  xlog::log_print(__FILE__, __LINE__, xlog::ERR, fmt, ##__VA_ARGS__); \
+  xlog::log_print(__FILE__, __func__, __LINE__, xlog::ERR, fmt, ##__VA_ARGS__); \
 } while (0)
 
 namespace xlog {
@@ -40,7 +40,7 @@ int log_add_dst(const char *logfile,
                 log_level lvl = DEBUG, int flgs = LOG_DEFAULT);
 int set_log_level(log_level lvl);
 int set_log_level(const char *lvlstr);
-int log_print(const char *curfile, const int lineno, const log_level lvl,
+int log_print(const char *curfile, const char *func, const int lineno, const log_level lvl,
               const char *fmt, ...);
 int log_close();
 

@@ -116,9 +116,7 @@ int main(int argc, const char *argv[])
     exit(1);
   }
   tsem_down(appPriv->clockEventSem);
-  LOGI("1:clocksrc Clock Port (connected to parser) Disabled");
-  LOGI("2:clocksrc Clock Port (connected to parser) Disabled");
-  LOGI("3:clocksrc Clock Port (connected to parser) Disabled");
+  LOGI("clocksrc Clock Port (connected to parser) Disabled");
 
   omxErr = OMX_SendCommand(appPriv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
   if (omxErr != OMX_ErrorNone) {
@@ -146,6 +144,7 @@ int main(int argc, const char *argv[])
   tsem_down(appPriv->rtmpsrcEventSem);
   LOGI("Rtmpsrc Port Settings Changed event ");
 
+  xlog::log_close();
   return 0;
 }
 
@@ -292,7 +291,6 @@ OMX_ERRORTYPE clocksrcEventHandler(
     LOGI("Param2 is %i", (int) Data2);
   }
 
-  xlog::log_close();
   return OMX_ErrorNone;
 }
 
