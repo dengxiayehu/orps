@@ -1,9 +1,6 @@
 #ifndef _XUTIL_H_
 #define _XUTIL_H_
 
-// Large file support
-#define _FILE_OFFSET_BITS 64
-
 #include "xtype.h"
 
 #include <iostream>
@@ -26,55 +23,15 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "xutil_macros.h"
+#include "xmacros.h"
 
 namespace xutil {
 
 const static int MaxLine = 4098;
 
-typedef enum {
-  SUCCESS = 0,
-  ERROR,
-  ERR_INVALID_PARM,
-  ERR_OUT_OF_RESOURCE,
-  ERR_INTERNAL,
-  ERR_LOGICAL,
-  ERR_SYS,
-  ERR_NOT_EXISTS,
-  ERR_REMOTE,
-  ERR_NOT_IMPLEMENTED,
-  ERR_INPUT,
-} status_t;
-
-inline const char *xstrerror(status_t st)
-{
-  static const char *info[] = {
-    "success",
-    "error occurred",
-    "invalid param",
-    "internal error",
-    "logical error",
-    "system error",
-    "not exists",
-    "remote error",
-    "not implemented",
-    "error input"
-  };
-
-  return info[st];
-}
-
-#define ERRNOMSG strerror(errno)
-
-/////////////////////////////////////////////////////////////
-
 std::string sprintf_(const char *fmt, ...);
 
-bool is_valid_ip(const char *ip);
-
 std::vector<std::string> split(const std::string str, const char *delim);
-
-std::string hostname_to_ip(const char *hostname);
 
 ssize_t readn(int fd, void *buf, size_t n);
 ssize_t writen(int fd, const void *buf, size_t n);
@@ -153,7 +110,7 @@ public:
   }
 
 private:
-  pthread_mutex_t     m_mutex;
+  pthread_mutex_t m_mutex;
   pthread_mutexattr_t m_attr;
 };
 
@@ -203,7 +160,7 @@ public:
 public:
   ~Signaler();
 
-  status_t install(sighandler_t hdl, ...);
+  int install(sighandler_t hdl, ...);
 
   static Signaler *get_instance() {
     if (!signaler) {
@@ -266,7 +223,7 @@ public:
   explicit Thread(bool detach = false);
   virtual ~Thread() { }
 
-  status_t join();
+  int join();
   bool is_detach() const { return m_detach; }
   bool is_alive() const;
   pthread_t get_tid() const { return m_tid; }
@@ -274,10 +231,10 @@ public:
   virtual void run() = 0;
 
 protected:
-  static void * thread_router(void *arg);
+  static void *thread_router(void *arg);
 
-  pthread_t           m_tid;
-  bool                m_detach;
+  pthread_t m_tid;
+  bool m_detach;
 };
 
 /////////////////////////////////////////////////////////////
@@ -291,11 +248,11 @@ public:
   void *calloc(uint32_t sz);
   void *get_buffer() const { return m_buf; }
 
-  void  destroy();
+  void destroy();
 
 private:
-  uint32_t    m_capacity;
-  void      * m_buf;
+  uint32_t m_capacity;
+  void *m_buf;
 };
 
 /////////////////////////////////////////////////////////////

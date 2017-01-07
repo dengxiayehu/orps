@@ -1,7 +1,9 @@
 #ifndef _XURI_H_
 #define _XURI_H_
 
-#include "xutil.h"
+#include <stdio.h>
+#include <string>
+#include <map>
 
 namespace xuri {
 

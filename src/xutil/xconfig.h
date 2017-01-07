@@ -1,7 +1,8 @@
 #ifndef _XCONFIG_H_
 #define _XCONFIG_H_
 
-#include "xutil.h"
+#include "xlog.h"
+#include "xmacros.h"
 
 namespace xconfig {
 

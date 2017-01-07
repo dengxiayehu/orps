@@ -1,11 +1,18 @@
 #ifndef _XNET_H_
 #define _XNET_H_
 
-#include "xutil.h"
+#include <iostream>
+#include <string>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
+#include "xtype.h"
 
 #define MTU 1500
 
 namespace xnet {
+
+bool is_valid_ip(const char *ip);
 
 class AddressPort {
   friend std::ostream &operator<<(std::ostream &, const AddressPort &);

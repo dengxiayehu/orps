@@ -1,7 +1,10 @@
 #ifndef _XFILE_H_
 #define _XFILE_H_
 
-#include "xutil.h"
+#include <stdio.h>
+#include <string>
+
+#include "xtype.h"
 
 namespace xfile {
 

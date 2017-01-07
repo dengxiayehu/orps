@@ -4,6 +4,7 @@
 #include <algorithm>
 
 #include "xlog.h"
+#include "xutil.h"
 
 #define IMPL(x) ((CurlImpl *) (x))
 

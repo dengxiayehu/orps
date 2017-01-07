@@ -1,4 +1,5 @@
 #include "xuri.h"
+#include "xutil.h"
 #include "xlog.h"
 
 using namespace xutil;

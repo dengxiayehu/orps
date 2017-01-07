@@ -13,6 +13,8 @@
 #include <cxxabi.h>
 #include <cerrno>
 
+#include "xutil.h"
+
 #define COLOR_FORMAT_NONE           "\033[0m"
 #define COLOR_FORMAT_LEVEL_WARN     "\033[33;1m"
 #define COLOR_FORMAT_LEVEL_ERR      "\033[31;1m"
@@ -53,7 +55,7 @@ static const char *demangle_using_addr2line(int pid, char *buffer, const char *s
 static const char *demangle(const char *symbol, char *buffer);
 static int gettimestr(char *buf);
 
-status_t log_add_dst(const char *logfile, log_level lvl, int flgs)
+int log_add_dst(const char *logfile, log_level lvl, int flgs)
 {
   AutoLock _l(mutex);
 
@@ -63,7 +65,7 @@ status_t log_add_dst(const char *logfile, log_level lvl, int flgs)
   if (fd < 0) {
     fprintf(stderr, "Open \"%s\" failed: %s\n",
             logfile, ERRNOMSG);
-    return ERR_SYS;
+    return -1;
   }
 
   log_t *l = (log_t *) calloc(1, sizeof(log_t));
@@ -71,7 +73,7 @@ status_t log_add_dst(const char *logfile, log_level lvl, int flgs)
     fprintf(stderr, "calloc for log_t failed: %s\n",
             ERRNOMSG);
     close(fd);
-    return ERR_SYS;
+    return -1;
   }
 
   l->fd  = fd;
@@ -82,7 +84,7 @@ status_t log_add_dst(const char *logfile, log_level lvl, int flgs)
   if (!log) {
     if (sig_crashes_setup() < 0) {
       fprintf(stderr, "sig_crashes_setup() failed");
-      return ERR_SYS;
+      return -1;
     }
 
     log = l;
@@ -91,7 +93,7 @@ status_t log_add_dst(const char *logfile, log_level lvl, int flgs)
     log->next = l;
   }
 
-  return SUCCESS;
+  return 0;
 }
 
 int set_log_level(const char *lvlstr)
@@ -180,10 +182,10 @@ int log_print(const char *curfile, const int lineno, const log_level lvl,
     }
   }
 
-  return SUCCESS;
+  return 0;
 }
 
-status_t log_close()
+int log_close()
 {
   AutoLock _l(mutex);
 
@@ -197,7 +199,7 @@ status_t log_close()
 
   sig_crashes_restore();
 
-  return SUCCESS;
+  return 0;
 }
 
 const int k_exception_signals[] = {

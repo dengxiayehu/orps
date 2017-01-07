@@ -3,13 +3,12 @@
 #include <iostream>
 #include <cstdlib>
 #include <sys/socket.h>
-#include <arpa/inet.h>
 #include <net/if.h>
-#include <netinet/in.h>
 #include <netdb.h>
 #include <sys/ioctl.h>
 #include <poll.h>
 
+#include "xutil.h"
 #include "xlog.h"
 
 //#define XDEBUG
@@ -18,6 +17,16 @@ using namespace std;
 using namespace xutil;
 
 namespace xnet {
+
+bool is_valid_ip(const char *ip)
+{
+  if (inet_addr(ip) != INADDR_NONE) {
+    return true;
+  }
+
+  LOGE("inet_addr failed: %s", ERRNOMSG);
+  return false;
+}
 
 AddressPort::AddressPort()
 {

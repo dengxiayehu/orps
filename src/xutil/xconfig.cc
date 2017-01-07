@@ -1,8 +1,8 @@
 #include <sys/inotify.h>
 
 #include "xconfig.h"
-#include "xlog.h"
 #include "xfile.h"
+#include "xutil.h"
 
 using namespace xutil;
 using namespace xfile;

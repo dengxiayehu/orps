@@ -3,12 +3,10 @@
 
 #include <vector>
 
-#include "xutil.h"
+#include "xtype.h"
 #include "list.h"
 
 namespace amf {
-
-using xutil::status_t;
 
 enum {
   MONO    = 0,

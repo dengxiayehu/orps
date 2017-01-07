@@ -1,8 +1,10 @@
 #include "xmedia.h"
 
+#include <cstdio>
 #include <cstdlib>
 
 #include "xlog.h"
+#include "xutil.h"
 
 using namespace xutil;
 

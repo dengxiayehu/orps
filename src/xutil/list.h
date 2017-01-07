@@ -3,8 +3,9 @@
 
 #ifdef __cplusplus
 extern "C" {
-// Taken from linux kernel file, since new is a keyword in C++, alias it to xnew
-#define new xnew
+// Taken from linux kernel source files,
+// since new is a keyword in C++, redefine it here.
+#define new new_item
 #endif
 
 #ifndef offsetof

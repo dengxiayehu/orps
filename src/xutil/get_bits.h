@@ -23,7 +23,8 @@
 
 #include <limits.h>
 #include <assert.h>
-#include <xutil.h>
+
+#include "xmacros.h"
 
 #define OPEN_READER_NOSIZE(name, gb)          \
   unsigned int name ## _index = (gb)->index;  \

@@ -31,16 +31,6 @@ std::string sprintf_(const char *fmt, ...)
   return std::string(buf);
 }
 
-bool is_valid_ip(const char *ip)
-{
-  if (inet_addr(ip) != INADDR_NONE) {
-    return true;
-  }
-
-  LOGE("inet_addr failed: %s", ERRNOMSG);
-  return false;
-}
-
 std::vector<std::string> split(const std::string str, const char *delim)
 {
   // Make a copy of str, for the following strtok will modify it
@@ -566,24 +556,24 @@ int Condition::broadcast()
 Signaler *Signaler::signaler = NULL;
 RecursiveMutex Signaler::mutex;
 
-status_t Signaler::install(sighandler_t hdl, ...)
+int Signaler::install(sighandler_t hdl, ...)
 {
   int signo;
   va_list ap;
   va_start(ap, hdl);
   while ((signo = va_arg(ap, int)) > 0 &&
-      signo != SIGLIST_END) {
+         signo != SIGLIST_END) {
     sighandler_t sighdl = ::signal(signo, hdl);
     if (SIG_ERR == sighdl) {
       LOGE("signal for %s(%d) failed: %s",
            sys_siglist[signo], signo, ERRNOMSG);
-      return ERR_SYS;
+      return -1;
     } else {
       m_signo_hdl_map[signo] = sighdl;
     }
   }
   va_end(ap);
-  return SUCCESS;
+  return 0;
 }
 
 Signaler::~Signaler()
@@ -620,20 +610,20 @@ void *Thread::thread_router(void *arg)
   return NULL;
 }
 
-status_t Thread::join()
+int Thread::join()
 {
   if (m_detach) {
     LOGE("Try to join a detached thread");
-    return ERR_LOGICAL;
+    return -1;
   }
 
   int ret = pthread_join(m_tid, NULL);
   if (ret != 0) {
     LOGE("pthread_join failed: %s", ERRNOMSG);
-    return ERR_SYS;
+    return -1;
   }
 
-  return SUCCESS;
+  return 0;
 }
 
 bool Thread::is_alive() const

@@ -1,5 +1,5 @@
-#ifndef _XUTIL_MACROS_H_
-#define _XUTIL_MACROS_H_
+#ifndef _XMACROS_H_
+#define _XMACROS_H_
 
 #ifndef SAFE_DELETE
 #  define SAFE_DELETE(p) do {   \
@@ -86,7 +86,9 @@ void operator=(const TypeName &)
   fprintf(stderr, "\n");                  \
 } while (0)
 
-/////////////////////////////////////////////////////////////
+#include <string.h>
+#include <errno.h>
+#define ERRNOMSG strerror(errno)
 
 #include <arpa/inet.h>
 
@@ -172,4 +174,4 @@ void operator=(const TypeName &)
 #define MAKE_TAG2(a,b) MAKE_TAG3(a,b,0)
 #define MAKE_TAG1(a) MAKE_TAG2(a,0)
 
-#endif /* end of _XUTIL_MACROS_H_ */
+#endif /* end of _XMACROS_H_ */

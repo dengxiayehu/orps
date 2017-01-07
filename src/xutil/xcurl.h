@@ -2,8 +2,9 @@
 #define _XCURL_H_
 
 #include <curl/curl.h>
+#include <vector>
 
-#include "xutil.h"
+#include "xmacros.h"
 
 namespace xcurl {
 

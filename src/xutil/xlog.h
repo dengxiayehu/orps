@@ -19,10 +19,6 @@
   xlog::log_print(__FILE__, __LINE__, xlog::ERR, fmt, ##__VA_ARGS__); \
 } while (0)
 
-#include "xutil.h"
-
-using xutil::status_t;
-
 namespace xlog {
 
 enum log_level {
@@ -40,13 +36,13 @@ enum log_level {
 #define LOG_NOTID       (1<<5)
 #define LOG_DEFAULT     (LOG_STDERR | LOG_TRUNC)
 
-status_t log_add_dst(const char *logfile,
-                     log_level lvl = DEBUG, int flgs = LOG_DEFAULT);
+int log_add_dst(const char *logfile,
+                log_level lvl = DEBUG, int flgs = LOG_DEFAULT);
 int set_log_level(log_level lvl);
 int set_log_level(const char *lvlstr);
 int log_print(const char *curfile, const int lineno, const log_level lvl,
               const char *fmt, ...);
-status_t log_close();
+int log_close();
 
 }
 

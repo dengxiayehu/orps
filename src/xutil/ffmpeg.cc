@@ -4,7 +4,7 @@
 #include <cstdlib>
 #include <cassert>
 
-#include <xlog.h>
+#include "xlog.h"
 
 //#define XDEBUG
 
