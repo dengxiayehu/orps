@@ -4,6 +4,8 @@
 #include <omx_base_clock_port.h>
 #include <omx_rtmpsrc_component.h>
 
+#include <orps_config.h>
+#include <xutil.h>
 #include <xlog.h>
 
 #define VIDEO_PORT_INDEX 0
@@ -13,6 +15,8 @@
 #define DEFAULT_URL_LENGTH  2048
 
 static OMX_U32 noRtmpsrcInstance = 0;
+
+static void rtmp_log(int level, const char *fmt, va_list args);
 
 OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *openmaxStandComp, OMX_STRING cComponentName)
 {
@@ -285,7 +289,7 @@ OMX_ERRORTYPE omx_rtmpsrc_component_MessageHandler(OMX_COMPONENTTYPE *openmaxSta
     } else if ((message->messageParam == OMX_StateIdle) && (oldState == OMX_StateExecuting)) {
       omxErr = omx_rtmpsrc_component_Deinit(openmaxStandComp);
       if (omxErr != OMX_ErrorNone) {
-        LOGE("Rtmpsrc Deinit failed Error=%x\n", omxErr);
+        LOGE("Rtmpsrc Deinit failed Error=%x", omxErr);
         return omxErr;
       }
     }
@@ -297,19 +301,96 @@ OMX_ERRORTYPE omx_rtmpsrc_component_MessageHandler(OMX_COMPONENTTYPE *openmaxSta
 OMX_ERRORTYPE omx_rtmpsrc_component_Init(OMX_COMPONENTTYPE *openmaxStandComp)
 {
   omx_rtmpsrc_component_PrivateType *compPriv = (omx_rtmpsrc_component_PrivateType *) openmaxStandComp->pComponentPrivate;
-  omx_base_video_PortType *pPortV;
-  omx_base_audio_PortType *pPortA;
 
   compPriv->pRTMP = RTMP_Alloc();
+  if (!compPriv->pRTMP) {
+    LOGE("RTMP_Alloc failed with url \"%s\"", compPriv->sInputUrl);
+    return OMX_ErrorInsufficientResources;
+  }
+
   RTMP_Init(compPriv->pRTMP);
-  return OMX_ErrorNone;
+  compPriv->pRTMP->Link.timeout = RTMP_SOCK_TIMEOUT;
+
+  RTMP_LogSetLevel(RTMP_LOGLEVEL);
+  RTMP_LogSetCallback(rtmp_log);
+
+  AVal parsed_host, parsed_app, parsed_playpath;
+  unsigned int parsed_port = 0;
+  int parsed_protocol = RTMP_PROTOCOL_UNDEFINED;
+  AVal sockhost = { 0, 0 };
+  int ret = 0;
+
+  if (!(ret = RTMP_ParseURL(compPriv->sInputUrl, &parsed_protocol,
+                            &parsed_host, &parsed_port,
+                            &parsed_playpath, &parsed_app))) {
+    LOGE("Couldn't parse the specified url \"%s\"", compPriv->sInputUrl);
+    goto out;
+  }
+
+  BEGIN
+  char str[512] = { 0 };
+  AVal tcurl = { str, snprintf(str, sizeof(str)-1, "%s://%.*s:%d/%.*s",
+                               RTMPProtocolStringsLower[parsed_protocol],
+                               parsed_host.av_len, parsed_host.av_val,
+                               parsed_port,
+                               parsed_app.av_len, parsed_app.av_val) };
+
+  RTMP_SetupStream(compPriv->pRTMP, parsed_protocol, &parsed_host, parsed_port,
+                   &sockhost, &parsed_playpath, &tcurl, NULL, NULL,
+                   &parsed_app, NULL, NULL, 0,
+                   NULL, NULL, NULL, 0, 0, TRUE, RTMP_SOCK_TIMEOUT);
+  END
+
+  RTMP_SetBufferMS(compPriv->pRTMP, RTMP_BUFFER_TIME);
+
+  if (!(ret = RTMP_Connect(compPriv->pRTMP, NULL))) {
+    LOGE("RTMP_Connect failed for url \"%s\"", compPriv->sInputUrl);
+    goto out;
+  }
+
+  if (!(ret = RTMP_ConnectStream(compPriv->pRTMP, 0))) {
+    LOGE("RTMP_ConnectStream failed for url \"%s\"", compPriv->sInputUrl);
+    goto out;
+  }
+  
+  LOGI("Connect to rtmp url \"%s\" ok", compPriv->sInputUrl);
+
+out:
+  SAFE_FREE(parsed_playpath.av_val);
+  return ret == TRUE ? OMX_ErrorNone : OMX_ErrorBadParameter;
 }
 
 OMX_ERRORTYPE omx_rtmpsrc_component_Deinit(OMX_COMPONENTTYPE *openmaxStandComp)
 {
   omx_rtmpsrc_component_PrivateType *compPriv = (omx_rtmpsrc_component_PrivateType *) openmaxStandComp->pComponentPrivate;
 
-  RTMP_Close(compPriv->pRTMP);
-  RTMP_Free(compPriv->pRTMP);
+  if (compPriv->pRTMP) {
+    RTMP_Close(compPriv->pRTMP);
+    RTMP_Free(compPriv->pRTMP);
+    compPriv->pRTMP = NULL;
+  }
+
   return OMX_ErrorNone;
+}
+
+static void rtmp_log(int level, const char *fmt, va_list args)
+{
+  if (level == RTMP_LOGDEBUG2 ||
+      level == RTMP_LOGDEBUG) {
+    // Ignore librtmp's debug message
+    return;
+  }
+    
+  char buf[4096];
+  vsnprintf(buf, sizeof(buf)-1, fmt, args);
+
+  switch (level) {
+    default:
+    case RTMP_LOGCRIT: 
+    case RTMP_LOGERROR: level = xlog::ERR; break;
+    case RTMP_LOGWARNING: level = xlog::WARN; break;
+    case RTMP_LOGINFO: level = xlog::INFO; break;
+  }
+
+  xlog::log_print("rtmpsrc", "unknown", -1, (xlog::log_level) level, buf);
 }
