@@ -1,12 +1,12 @@
-#ifndef _AMF_H_
-#define _AMF_H_
+#ifndef _XAMF_H_
+#define _XAMF_H_
 
 #include <vector>
 
 #include "xtype.h"
 #include "list.h"
 
-namespace amf {
+namespace xamf {
 
 enum {
   MONO    = 0,
@@ -136,4 +136,4 @@ static inline uint64_t double2int(double val)
 
 }
 
-#endif /* end of _AMF_H_ */
+#endif /* end of _XAMF_H_ */

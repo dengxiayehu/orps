@@ -1,4 +1,4 @@
-#include "ffmpeg.h"
+#include "xffmpeg.h"
 
 #include <limits.h>
 #include <cstdlib>
@@ -8,7 +8,7 @@
 
 //#define XDEBUG
 
-namespace ffmpeg {
+namespace xffmpeg {
 
 const uint8_t static mpeg4audio_channels[8] = {
   0, 1, 2, 3, 4, 5, 6, 8

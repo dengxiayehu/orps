@@ -25,7 +25,7 @@
 using namespace xutil;
 using namespace xmedia;
 
-namespace ffmpeg {
+namespace xffmpeg {
 
 struct Packet {
   uint8_t *data;

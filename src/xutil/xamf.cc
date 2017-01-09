@@ -1,4 +1,4 @@
-#include "amf.h"
+#include "xamf.h"
 
 #include <cstdlib>
 #include <ctime>
@@ -8,7 +8,7 @@
 
 using namespace xutil;
 
-namespace amf {
+namespace xamf {
 
 ArrayItem::ArrayItem()
 {
