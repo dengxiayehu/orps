@@ -1,5 +1,5 @@
-#ifndef _FFMPEG_H_
-#define _FFMPEG_H_
+#ifndef _XFFMPEG_H_
+#define _XFFMPEG_H_
 
 #include <xfile.h>
 #include <get_bits.h>
@@ -358,4 +358,4 @@ const uint8_t *priv_find_start_code(const uint8_t *p, const uint8_t *end,
 
 }
 
-#endif /* end of _FFMPEG_H_ */
+#endif /* end of _XFFMPEG_H_ */
