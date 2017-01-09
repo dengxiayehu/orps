@@ -181,8 +181,7 @@ out:
 
   if (orig_hdl != SIG_ERR) {
     if (signal(SIGCHLD, orig_hdl) == SIG_ERR) {
-      LOGE("restore SIGCHLD after popen failed: %s",
-           ERRNOMSG);
+      LOGE("restore SIGCHLD after popen failed: %s", ERRNOMSG);
       ret = false;
     }
   }
@@ -194,18 +193,14 @@ std::string uuid()
 {
   char buff[128];
 
-  CHECK_EXPR_EXEC_RETVAL(!exec_get_str("uuidgen -t", buff, sizeof(buff)),
-                         LOGE("try to generate uuid failed"),
-                         sprintf_("%d", rand()));
+  CHECK_EXPR_EXEC_RETVAL(!exec_get_str("uuidgen -t", buff, sizeof(buff)), LOGE("try to generate uuid failed"), sprintf_("%d", rand()));
 
   return std::string(buff);
 }
 
 std::string to_upper_str(const char *str)
 {
-  CHECK_EXPR_EXEC_RETVAL(!str,
-                         LOGE("Null parm passed"),
-                         std::string("NULL"));
+  CHECK_EXPR_EXEC_RETVAL(!str, LOGE("Null parm passed"), std::string("NULL"));
 
   std::string s(str);
   for (std::string::size_type i = 0; i < s.size(); ++i)
@@ -215,9 +210,7 @@ std::string to_upper_str(const char *str)
 
 std::string to_lower_str(const char *str)
 {
-  CHECK_EXPR_EXEC_RETVAL(!str,
-                         LOGE("Null parm passed"),
-                         std::string("NULL"));
+  CHECK_EXPR_EXEC_RETVAL(!str, LOGE("Null parm passed"), std::string("NULL"));
 
   std::string s(str);
   for (std::string::size_type i = 0; i < s.size(); ++i)
@@ -471,8 +464,7 @@ int scandir(void *opaque, const char *path,
 
   dir = opendir(path);
   if (!dir) {
-    LOGE("Open dir \"%s\" failed: %s\n",
-         path, ERRNOMSG);
+    LOGE("Open dir \"%s\" failed: %s\n", path, ERRNOMSG);
     return -1;
   }
 
@@ -565,8 +557,7 @@ int Signaler::install(sighandler_t hdl, ...)
          signo != SIGLIST_END) {
     sighandler_t sighdl = ::signal(signo, hdl);
     if (SIG_ERR == sighdl) {
-      LOGE("signal for %s(%d) failed: %s",
-           sys_siglist[signo], signo, ERRNOMSG);
+      LOGE("signal for %s(%d) failed: %s", sys_siglist[signo], signo, ERRNOMSG);
       return -1;
     } else {
       m_signo_hdl_map[signo] = sighdl;
@@ -580,8 +571,7 @@ Signaler::~Signaler()
 {
   FOR_MAP(m_signo_hdl_map, int, sighandler_t, it) {
     if (SIG_ERR == ::signal(it->first, it->second)) {
-      LOGE("restore signal for %s(%d) failed: %s",
-           sys_siglist[it->first], it->first, ERRNOMSG);
+      LOGE("restore signal for %s(%d) failed: %s", sys_siglist[it->first], it->first, ERRNOMSG);
       continue;
     }
 
@@ -666,8 +656,7 @@ void *MemHolder::alloc(uint32_t sz)
     // Alloc the new wanted space
     void *tmp = malloc(m_capacity);
     if (!tmp) {
-      LOGE("MemHolder malloc for size(%u) failed: %s",
-           m_capacity, ERRNOMSG);
+      LOGE("MemHolder malloc for size(%u) failed: %s", m_capacity, ERRNOMSG);
 
       destroy();
       return NULL;
@@ -716,8 +705,7 @@ IOBuffer::~IOBuffer()
 void IOBuffer::initialize(uint32_t expected)
 {
   if (buffer || size || published || consumed) {
-    LOGE("Invalid IOBuffer state(%p,%u,%u,%u)",
-         buffer, size, published, consumed);
+    LOGE("Invalid IOBuffer state(%p,%u,%u,%u)", buffer, size, published, consumed);
     return;
   }
 
@@ -960,8 +948,7 @@ AutoFileLock::AutoFileLock(const std::string &flock_path, short l_type) :
   m_fd = open(STR(m_flock_path), O_RDWR|O_CREAT,
               S_IRWXU|S_IRWXG|S_IRWXO);
   if (m_fd < 0) {
-    LOGE("Open file lock \"%s\" failed: %s",
-         STR(m_flock_path), ERRNOMSG);
+    LOGE("Open file lock \"%s\" failed: %s", STR(m_flock_path), ERRNOMSG);
     return;
   }
 
@@ -971,8 +958,7 @@ AutoFileLock::AutoFileLock(const std::string &flock_path, short l_type) :
   lock.l_len = 0;
   lock.l_type = l_type;
   if (fcntl(m_fd, F_SETLK, &lock) < 0) {
-    LOGE("Lock file \"%s\" failed: %s",
-         STR(m_flock_path), ERRNOMSG);
+    LOGE("Lock file \"%s\" failed: %s", STR(m_flock_path), ERRNOMSG);
     SAFE_CLOSE(m_fd);
     return;
   }
@@ -987,8 +973,7 @@ AutoFileLock::~AutoFileLock()
     lock.l_len = 0;
     lock.l_type = F_UNLCK;
     if (fcntl(m_fd, F_SETLK, &lock) < 0) {
-      LOGE("Unlock file \"%s\" failed: %s",
-           STR(m_flock_path), ERRNOMSG);
+      LOGE("Unlock file \"%s\" failed: %s", STR(m_flock_path), ERRNOMSG);
     }
     SAFE_CLOSE(m_fd);
   }

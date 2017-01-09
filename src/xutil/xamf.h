@@ -87,8 +87,7 @@ int parse_amf(const byte *&buff, uint32_t len, struct list_head *head);
 int get_amf_string(const byte *&p, uint32_t len, AMFString &amfstr);
 int get_amf_number(const byte *&p, uint32_t len, AMFNumber &amfnum);
 int get_amf_bool(const byte *&p, uint32_t len, AMFNumber &amfbool);
-int get_amf_associate_array(const byte *&p, uint32_t len,
-                            AMFAssociateArray &amfasoarr);
+int get_amf_associate_array(const byte *&p, uint32_t len, AMFAssociateArray &amfasoarr);
 int get_amf_array(const byte *&p, uint32_t len, AMFArray &amfarr);
 int get_amf_typobj(const byte *&p, uint32_t len, AMFObject &amftypobj);
 int get_amf_date(const byte *&p, uint32_t len, AMFDate &amfdate);
@@ -100,8 +99,7 @@ int put_amf_string(byte *&p, const char *str);
 int put_amf_number(byte *&p, double val);
 int put_amf_bool(byte *&p, bool b);
 int put_amf_obj_end(byte *&p);
-int put_amf_associate_array(byte *&p,
-                            const AMFAssociateArray &amfasoarr);
+int put_amf_associate_array(byte *&p, const AMFAssociateArray &amfasoarr);
 int put_amf_typobj(byte *&p, const AMFObject &amftypobj);
 int put_amf_array(byte *&p, const AMFArray &amfarr);
 

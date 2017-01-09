@@ -63,15 +63,13 @@ int log_add_dst(const char *logfile, log_level lvl, int flgs)
                 O_WRONLY|O_CREAT|O_NOCTTY|(flgs&LOG_TRUNC?O_TRUNC:O_APPEND),
                 0666);
   if (fd < 0) {
-    fprintf(stderr, "Open \"%s\" failed: %s\n",
-            logfile, ERRNOMSG);
+    fprintf(stderr, "Open \"%s\" failed: %s\n", logfile, ERRNOMSG);
     return -1;
   }
 
   log_t *l = (log_t *) calloc(1, sizeof(log_t));
   if (!l) {
-    fprintf(stderr, "calloc for log_t failed: %s\n",
-            ERRNOMSG);
+    fprintf(stderr, "calloc for log_t failed: %s\n", ERRNOMSG);
     close(fd);
     return -1;
   }

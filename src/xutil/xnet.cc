@@ -43,8 +43,7 @@ AddressPort::AddressPort(const string &str)
 {
   string::size_type pos = str.find(':');
   if (pos == str.npos) {
-    LOGE("Invalid string \"\" for AddressPort to parse",
-         STR(str));
+    LOGE("Invalid string \"\" for AddressPort to parse", STR(str));
     reset();
     return;
   }
@@ -66,8 +65,7 @@ void AddressPort::reset()
 bool AddressPort::set_address(const char *ip)
 {
   if (!is_valid_ip(ip)) {
-    LOGE("Invalid IP address or not reachable \"%s\"",
-         ip);
+    LOGE("Invalid IP address or not reachable \"%s\"", ip);
     return false;
   }
 
@@ -169,8 +167,7 @@ string our_ip()
   conf.ifc_len = BUFSIZ;
   conf.ifc_buf = buff;
   if (-1 == ioctl(sockfd, SIOCGIFCONF, &conf)) {
-    LOGE("ioctl for SIOCGIFCONF failed: %s",
-         ERRNOMSG);
+    LOGE("ioctl for SIOCGIFCONF failed: %s", ERRNOMSG);
     goto out;
   }
 
@@ -182,8 +179,7 @@ string our_ip()
         (struct sockaddr_in *) (&ifr->ifr_addr);
 
       if (-1 == ioctl(sockfd, SIOCGIFFLAGS, ifr)) {
-        LOGE("ioctl for SIOCGIFFLAGS failed: %s",
-             ERRNOMSG);
+        LOGE("ioctl for SIOCGIFFLAGS failed: %s", ERRNOMSG);
         continue;
       }
 

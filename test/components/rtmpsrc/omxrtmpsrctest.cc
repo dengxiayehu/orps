@@ -214,8 +214,7 @@ OMX_ERRORTYPE rtmpsrcEventHandler(
       LOGI("Received Flush Event");
       tsem_up(appPriv->rtmpsrcEventSem);
     } else {
-      LOGI("Received Event Event=%d Data1=%d Data2=%d",
-            eEvent, (int) Data1, (int) Data2);
+      LOGI("Received Event Event=%d Data1=%d Data2=%d", eEvent, (int) Data1, (int) Data2);
     }
   } else if (eEvent == OMX_EventPortSettingsChanged) {
   } else if (eEvent == OMX_EventPortFormatDetected) {
@@ -276,8 +275,7 @@ OMX_ERRORTYPE clocksrcEventHandler(
       LOGI("Received Port Disable Event");
       tsem_up(appPriv->clockEventSem);
     } else {
-      LOGI("Received Event Event=%d Data1=%d Data2=%d",
-            eEvent, (int) Data1, (int) Data2);
+      LOGI("Received Event Event=%d Data1=%d Data2=%d", eEvent, (int) Data1, (int) Data2);
     }
   } else if(eEvent == OMX_EventPortSettingsChanged) {
     LOGI("Clock src Port Setting Changed event");

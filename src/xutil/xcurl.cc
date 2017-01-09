@@ -197,8 +197,7 @@ int CurlImpl::glob_info::perform()
     mc = curl_multi_perform(multi, &still_running);
   } while (mc == CURLM_CALL_MULTI_PERFORM);
   if (mc != CURLM_OK) {
-    LOGE("curl_multi_perform() failed:%s",
-         curl_multi_strerror(mc));
+    LOGE("curl_multi_perform() failed:%s", curl_multi_strerror(mc));
     goto bail;
   }
 
@@ -245,8 +244,7 @@ int CurlImpl::glob_info::perform()
           mc = curl_multi_perform(multi, &still_running);
         } while (mc == CURLM_CALL_MULTI_PERFORM);
         if (mc != CURLM_OK) {
-          LOGE("curl_multi_perform() failed:%s",
-               curl_multi_strerror(mc));
+          LOGE("curl_multi_perform() failed:%s", curl_multi_strerror(mc));
           goto bail;
         }
         break;
@@ -285,8 +283,7 @@ int CurlImpl::glob_info::perform()
     while (!connvec.empty())
       delete (connvec[0]);
   } else {
-    LOGE("multi(%p) has remaining easy handle(#%d)",
-         multi, transfers);
+    LOGE("multi(%p) has remaining easy handle(#%d)", multi, transfers);
     goto bail;
   }
   END
@@ -396,8 +393,7 @@ int CurlImpl::conn_info::setup(Curl::request *req_, glob_info *glob_)
     }
     CURLMcode mc = curl_multi_add_handle(glob_->multi, easy);
     if (mc != CURLM_OK) {
-      LOGE("curl_multi_add_handle(%p) failed: %s",
-           easy, curl_multi_strerror(mc));
+      LOGE("curl_multi_add_handle(%p) failed: %s", easy, curl_multi_strerror(mc));
       goto bail;
     }
     glob = glob_;
@@ -417,8 +413,7 @@ int CurlImpl::conn_info::perform()
 {
   CURLcode res = curl_easy_perform(easy);
   if (res != CURLE_OK) {
-    LOGE("curl_easy_perform() failed: %s",
-         curl_easy_strerror(res));
+    LOGE("curl_easy_perform() failed: %s", curl_easy_strerror(res));
     cleanup();
     return -1;
   }
@@ -500,8 +495,7 @@ void CurlImpl::conn_info::dump(const char *text, uint8_t *ptr, size_t size, char
   if (nohex)
     width = 0x40;
 
-  iobuf->read_from_string("\n%s, %10.10ld bytes (0x%8.8lx)\n",
-                          text, (long) size, (long) size);
+  iobuf->read_from_string("\n%s, %10.10ld bytes (0x%8.8lx)\n", text, (long) size, (long) size);
 
   for (size_t i = 0; i < size; i += width) {
     iobuf->read_from_string("%4.4lx: ", (long) i);
@@ -520,8 +514,7 @@ void CurlImpl::conn_info::dump(const char *text, uint8_t *ptr, size_t size, char
         i += (c+2-width);
         break;
       }
-      iobuf->read_from_string("%c",
-          (ptr[i+c]>=0x20)&&(ptr[i+c]<0x80)?ptr[i+c]:'.');
+      iobuf->read_from_string("%c", (ptr[i+c]>=0x20)&&(ptr[i+c]<0x80)?ptr[i+c]:'.');
       if (nohex && (i+c+2 < size) && ptr[i+c+1]==0x0D && ptr[i+c+2]==0x0A) {
         i += (c+3-width);
         break;

@@ -67,11 +67,9 @@ void print_avc_dcr(const AVCDecorderConfigurationRecord &avc_dcr)
   printf("---AVCDecorderConfigurationRecord---\n");
   printf("version: %u\n", avc_dcr.version);
   printf("profile: %u\n", avc_dcr.profile);
-  printf("profile_compatibility: %u\n",
-         avc_dcr.profile_compatibility);
+  printf("profile_compatibility: %u\n", avc_dcr.profile_compatibility);
   printf("level: %u\n", avc_dcr.level);
-  printf("length_size_minus_one: %u\n",
-         avc_dcr.length_size_minus_one);
+  printf("length_size_minus_one: %u\n", avc_dcr.length_size_minus_one);
   printf("num_of_sps: %u\n", avc_dcr.num_of_sps);
   printf("sps_length: %u\n", avc_dcr.sps_length);
   for (uint16_t idx = 0; idx < avc_dcr.sps_length; ++idx) {
@@ -125,10 +123,8 @@ void print_asc(const AudioSpecificConfig &asc)
 
   printf("---AudioSpecificConfig---\n");
   printf("%02x %02x\n", asc.dat[0], asc.dat[1]);
-  printf("profile: %u (%s)\n",
-         profile, audioprof_to_str(profile));
-  printf("sample_rate_idx: %u (%sHZ)\n",
-         sample_rate_idx, samplerate_idx_to_str(sample_rate_idx));
+  printf("profile: %u (%s)\n", profile, audioprof_to_str(profile));
+  printf("sample_rate_idx: %u (%sHZ)\n", sample_rate_idx, samplerate_idx_to_str(sample_rate_idx));
   printf("channel: %u\n", channel);
   printf("-------------------------\n");
 }
@@ -374,8 +370,7 @@ int h264_decode_sps(GetBitContext *gb, SPS *sps)
       sps->profile_idc == 144) {  // old High444 profile
     sps->chroma_format_idc = get_ue_golomb_31(gb);
     if (sps->chroma_format_idc > 3) {
-      LOGE("SPS: chroma_format_idc %u not supported",
-           sps->chroma_format_idc);
+      LOGE("SPS: chroma_format_idc %u not supported", sps->chroma_format_idc);
       goto fail;
     } else if (sps->chroma_format_idc == 3) {
       sps->residual_color_transform_flag = get_bits1(gb);
@@ -391,8 +386,7 @@ int h264_decode_sps(GetBitContext *gb, SPS *sps)
       goto fail;
     }
     if (sps->bit_depth_luma > 14 || sps->bit_depth_chroma > 14) {
-      LOGE("SPS: illegal bit depth value (%d, %d)\n",
-           sps->bit_depth_luma, sps->bit_depth_chroma);
+      LOGE("SPS: illegal bit depth value (%d, %d)\n", sps->bit_depth_luma, sps->bit_depth_chroma);
       goto fail;
     }
     sps->transform_bypass = get_bits1(gb);
@@ -407,8 +401,7 @@ int h264_decode_sps(GetBitContext *gb, SPS *sps)
   log2_max_frame_num_minus4 = get_ue_golomb(gb);
   if (log2_max_frame_num_minus4 < MIN_LOG2_MAX_FRAME_NUM - 4 ||
       log2_max_frame_num_minus4 > MAX_LOG2_MAX_FRAME_NUM - 4) {
-    LOGE("SPS: log2_max_frame_num_minus4 out of range (0-12): %d",
-         log2_max_frame_num_minus4);
+    LOGE("SPS: log2_max_frame_num_minus4 out of range (0-12): %d", log2_max_frame_num_minus4);
     goto fail;
   }
   sps->log2_max_frame_num = log2_max_frame_num_minus4 + 4;

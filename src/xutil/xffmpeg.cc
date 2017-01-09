@@ -255,8 +255,7 @@ void priv_set_pts_info(Stream *s, int pts_wrap_bits,
                        unsigned int pts_num, unsigned int pts_den)
 {
   if (pts_num <= 0 || pts_den <= 0) {
-    LOGE("Ignoring attempt to set invalid timebase %d/%d for st:%d",
-         pts_num, pts_den, s->index);
+    LOGE("Ignoring attempt to set invalid timebase %d/%d for st:%d", pts_num, pts_den, s->index);
     return;
   }
   s->time_base.num = pts_num;
@@ -732,10 +731,8 @@ int combine_frame(ParseContext *pc, int next,
 {
   if (pc->overread) {
 #ifdef DEBUG
-    LOGD("overread %d, state:%X next:%d index:%d o_index:%d",
-         pc->overread, pc->state, next, pc->index, pc->overread_index);
-    LOGD("%X %X %X %X",
-         (*buf)[0], (*buf)[1], (*buf)[2], (*buf)[3]);
+    LOGD("overread %d, state:%X next:%d index:%d o_index:%d", pc->overread, pc->state, next, pc->index, pc->overread_index);
+    LOGD("%X %X %X %X", (*buf)[0], (*buf)[1], (*buf)[2], (*buf)[3]);
 #endif
   }
 
@@ -794,10 +791,8 @@ int combine_frame(ParseContext *pc, int next,
 
   if (pc->overread) {
 #ifdef DEBUG
-    LOGD("overread %d, state:%X next:%d index:%d o_index:%d",
-         pc->overread, pc->state, next, pc->index, pc->overread_index);
-    LOGD("%X %X %X %X",
-         (*buf)[0], (*buf)[1], (*buf)[2], (*buf)[3]);
+    LOGD("overread %d, state:%X next:%d index:%d o_index:%d", pc->overread, pc->state, next, pc->index, pc->overread_index);
+    LOGD("%X %X %X %X", (*buf)[0], (*buf)[1], (*buf)[2], (*buf)[3]);
 #endif
   }
 
@@ -978,8 +973,7 @@ uint8_t *h264_decode_nal(H264Context *h, const uint8_t *src,
     uint8_t *p = (uint8_t *) realloc(h->rbsp_buffer[bufidx],
                                      wanted_size);
     if (!p) {
-      LOGE("realloc for rbsp_buffer[%d] failed: %s",
-           bufidx, ERRNOMSG);
+      LOGE("realloc for rbsp_buffer[%d] failed: %s", bufidx, ERRNOMSG);
       return NULL;
     }
     memset(p, 0, wanted_size);
@@ -1147,13 +1141,11 @@ void estimate_timings(FormatContext *ic, off_t old_offset)
     Stream *st = ic->streams[i];
     UNUSED(st);
 #ifdef DEBUG
-    LOGD("%d: start_time: %lf", i,
-         (double) st->start_time / AV_TIME_BASE);
+    LOGD("%d: start_time: %lf", i, (double) st->start_time / AV_TIME_BASE);
 #endif
   }
 #ifdef DEBUG
-  LOGD("stream: start_time: %lf",
-       (double) ic->start_time / AV_TIME_BASE);
+  LOGD("stream: start_time: %lf", (double) ic->start_time / AV_TIME_BASE);
 #endif
 }
 
@@ -1265,24 +1257,17 @@ int read_frame_internal(FormatContext *s, Packet *pkt)
     if (cur_pkt.pts != -1 &&
         cur_pkt.dts != -1 &&
         cur_pkt.pts < cur_pkt.dts) {
-      LOGW("Invalid timestamps stream=%d, pts=%lld, dts=%lld, size=%d",
-           cur_pkt.stream_index, cur_pkt.pts, cur_pkt.dts, cur_pkt.size);
+      LOGW("Invalid timestamps stream=%d, pts=%lld, dts=%lld, size=%d", cur_pkt.stream_index, cur_pkt.pts, cur_pkt.dts, cur_pkt.size);
     }
 #ifdef XDEBUG
-    LOGD("read_packet stream=%d, pts=%lld, dts=%lld, size=%d, duration=%d",
-         cur_pkt.stream_index,
-         cur_pkt.pts,
-         cur_pkt.dts,
-         cur_pkt.size,
-         cur_pkt.duration);
+    LOGD("read_packet stream=%d, pts=%lld, dts=%lld, size=%d, duration=%d", cur_pkt.stream_index, cur_pkt.pts, cur_pkt.dts, cur_pkt.size, cur_pkt.duration);
 #endif
 
     if (st->need_parsing) {
       if (!st->parser) {
         st->parser = parser_init(st->codec->codec_id);
         if (!st->parser) {
-          LOGE("Parser not found for codec(codec_id:%d)",
-               st->codec->codec_id);
+          LOGE("Parser not found for codec(codec_id:%d)", st->codec->codec_id);
           return -1;
         }
       }
@@ -1303,10 +1288,7 @@ int read_frame_internal(FormatContext *s, Packet *pkt)
     ret = read_from_packet_buffer(&s->parse_queue, &s->parse_queue_end, pkt);
 
 #ifdef XDEBUG
-  LOGD("read_frame_internal stream=%d, pts=%lld, dts=%lld, "
-       "size=%d, duration=%d",
-       pkt->stream_index, pkt->pts, pkt->dts,
-       pkt->size, pkt->duration);
+  LOGD("read_frame_internal stream=%d, pts=%lld, dts=%lld, size=%d, duration=%d", pkt->stream_index, pkt->pts, pkt->dts, pkt->size, pkt->duration);
 #endif
   return ret;
 }
@@ -1322,8 +1304,7 @@ int format_find_stream_info(FormatContext *ic)
   Packet *pkt, pkt1;
 
 #ifdef XDEBUG
-  LOGD("Before format_find_stream_info() pos: %lld",
-       old_offset);
+  LOGD("Before format_find_stream_info() pos: %lld", old_offset);
 #endif
 
   for (i = 0; i < ic->nb_streams; ++i) {
@@ -1337,8 +1318,7 @@ int format_find_stream_info(FormatContext *ic)
     if (!st->parser) {
       st->parser = parser_init(st->codec->codec_id);
       if (!st->parser && st->need_parsing) {
-        LOGE("Parser not found for codec(codec_id:%d)",
-             st->codec->codec_id);
+        LOGE("Parser not found for codec(codec_id:%d)", st->codec->codec_id);
       }
     }
 
@@ -1380,8 +1360,7 @@ int format_find_stream_info(FormatContext *ic)
     }
 
     if (read_size >= probesize) {
-      LOGW("Probe buffer size limit of %lld bytes reached",
-           probesize);
+      LOGW("Probe buffer size limit of %lld bytes reached", probesize);
       break;
     }
 
@@ -1434,8 +1413,7 @@ int process_input(FormatContext *ic, int stream_index)
     return -1;
 
 #ifdef XDEBUG
-  LOGI("demuxer -> stream: %d pkt_pts:%lld, pkt_dts:%lld size:%d duration:%d pos:%lld",
-       pkt.stream_index, pkt.pts, pkt.dts, pkt.size, pkt.duration, pkt.pos);
+  LOGI("demuxer -> stream: %d pkt_pts:%lld, pkt_dts:%lld size:%d duration:%d pos:%lld", pkt.stream_index, pkt.pts, pkt.dts, pkt.size, pkt.duration, pkt.pos);
 #endif
 
   if (pkt.dts != -1)
@@ -1444,8 +1422,7 @@ int process_input(FormatContext *ic, int stream_index)
     pkt.pts += av_rescale_q(ic->ts_offset, AV_TIME_BASE_Q, st->time_base);
 
 #ifdef XDEBUG
-  LOGI("demuxer+ffmpeg -> stream: %d pkt_pts:%lld, pkt_dts:%lld size:%d duration:%d pos:%lld",
-       pkt.stream_index, pkt.pts, pkt.dts, pkt.size, pkt.duration, pkt.pos);
+  LOGI("demuxer+ffmpeg -> stream: %d pkt_pts:%lld, pkt_dts:%lld size:%d duration:%d pos:%lld", pkt.stream_index, pkt.pts, pkt.dts, pkt.size, pkt.duration, pkt.pos);
 #endif
 
   do_streamcopy(ic, &pkt);
@@ -1482,8 +1459,7 @@ void write_frame(FormatContext *ic, Packet *pkt)
   }
 
 #ifdef XDEBUG
-  LOGI("muxer <- stream: %d pkt_pts:%lld pkt_dts:%lld size:%d duration:%d pos:%lld",
-       pkt->stream_index, pkt->pts, pkt->dts, pkt->size, pkt->duration, pkt->pos);
+  LOGI("muxer <- stream: %d pkt_pts:%lld pkt_dts:%lld size:%d duration:%d pos:%lld", pkt->stream_index, pkt->pts, pkt->dts, pkt->size, pkt->duration, pkt->pos);
 #endif
 
   ret = interleaved_write_frame(ic, pkt);
@@ -1500,8 +1476,7 @@ int interleaved_write_frame(FormatContext *ic, Packet *pkt)
 
   if (pkt->stream_index < 0 ||
       pkt->stream_index >= (int) ic->nb_streams) {
-    LOGE("Invalid packet stream index: %d",
-         pkt->stream_index);
+    LOGE("Invalid packet stream index: %d", pkt->stream_index);
     return -1;
   }
 
@@ -1525,8 +1500,7 @@ int interleaved_write_frame(FormatContext *ic, Packet *pkt)
     }
 
 #ifdef XDEBUG
-    LOGI("opkt.stream_index=%d, opkt.pts=%lld",
-         opkt.stream_index, opkt.pts);
+    LOGI("opkt.stream_index=%d, opkt.pts=%lld", opkt.stream_index, opkt.pts);
 #endif
     if (ic->cb) {
       MediaType mt = ic->streams[opkt.stream_index]->codec->codec_type;
@@ -1599,9 +1573,7 @@ int interleave_packet_per_dts(FormatContext *s, Packet *out,
     }
 
     if (delta_dts > s->max_interleave_delta) {
-      LOGE("Delay between the first packet and last packet in the "
-           "muxing queue is %lld > %lld: forcing output",
-           delta_dts, s->max_interleave_delta);
+      LOGE("Delay between the first packet and last packet in the muxing queue is %lld > %lld: forcing output", delta_dts, s->max_interleave_delta);
       flush = 1;
     }
   }
@@ -1640,8 +1612,7 @@ int write_trailer(FormatContext *s)
       break;
 
 #ifdef XDEBUG
-    LOGI("opkt.stream_index=%d, opkt.pts=%lld",
-         opkt.stream_index, opkt.pts);
+    LOGI("opkt.stream_index=%d, opkt.pts=%lld", opkt.stream_index, opkt.pts);
 #endif
 
     if (s->cb) {

@@ -78,8 +78,7 @@ int get_amf_obj_end(const byte *&p, uint32_t len)
   return 0;
 }
 
-int get_amf_associate_array(const byte *&p, uint32_t len,
-    AMFAssociateArray &amfasoarr)
+int get_amf_associate_array(const byte *&p, uint32_t len, AMFAssociateArray &amfasoarr)
 {
   const byte *savep = p;
 
@@ -376,28 +375,23 @@ void print_amf_list(const char *indent, struct list_head *head)
   list_for_each_entry_safe(amfobj, x, head, list) {
     switch (amfobj->typ) {
       case AMF_TYPE_NUMBER:
-        printf("%s%.2lf\n", indent,
-               int2double(amfobj->amfnum.val));
+        printf("%s%.2lf\n", indent, int2double(amfobj->amfnum.val));
         break;
 
       case AMF_TYPE_BOOL:
-        printf("%s%s\n", indent,
-               amfobj->amfbool.b ? "true" : "false");
+        printf("%s%s\n", indent, amfobj->amfbool.b ? "true" : "false");
         break;
 
       case AMF_TYPE_STRING:
-        printf("%s%-24s\n", indent,
-               amfobj->amfstr.str);
+        printf("%s%-24s\n", indent, amfobj->amfstr.str);
         break;
 
       case AMF_TYPE_OBJECT:
         printf("%sTYPE_OBJECT {\n", indent);
         if (amfobj->amftypobj.arr) { // In case it NULL
           FOR_VECTOR_ITERATOR(ArrayItem *, *amfobj->amftypobj.arr, it) {
-            printf("%s%-24s : ", indent,
-                   (*it)->first->amfstr.str);
-            print_amf_list(sprintf_("%s\t", indent).c_str(),
-                           &(*it)->second);
+            printf("%s%-24s : ", indent, (*it)->first->amfstr.str);
+            print_amf_list(sprintf_("%s\t", indent).c_str(), &(*it)->second);
           }
         }
         printf("%s}\n", indent);
@@ -407,10 +401,8 @@ void print_amf_list(const char *indent, struct list_head *head)
         printf("%sASSOCIATE_ARRAY {\n", indent);
         if (amfobj->amfasoarr.arr) { // In case it NULL
           FOR_VECTOR_ITERATOR(ArrayItem *, *amfobj->amfasoarr.arr, it) {
-            printf("%s%-24s : ", indent,
-                   (*it)->first->amfstr.str);
-            print_amf_list(sprintf_("%s\t", indent).c_str(),
-                           &(*it)->second);
+            printf("%s%-24s : ", indent, (*it)->first->amfstr.str);
+            print_amf_list(sprintf_("%s\t", indent).c_str(), &(*it)->second);
           }
         }
         printf("%s}\n", indent);
@@ -488,8 +480,7 @@ int put_amf_obj_end(byte *&p)
   return 0;
 }
 
-int put_amf_associate_array(byte *&p,
-    const AMFAssociateArray &amfasoarr)
+int put_amf_associate_array(byte *&p, const AMFAssociateArray &amfasoarr)
 {
   byte *savep = p;
 
@@ -628,8 +619,7 @@ int strm_amf_list(byte *&p, struct list_head *head)
         break;
 
       default:
-        LOGW("Not supported amfobj(%d) to stream",
-             amfobj->typ);
+        LOGW("Not supported amfobj(%d) to stream", amfobj->typ);
         break;
     }
   }

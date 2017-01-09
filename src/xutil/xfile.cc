@@ -28,8 +28,7 @@ bool File::open(const std::string &path, const char *mode)
 
   m_fp = fopen(path.c_str(), mode);
   if (!m_fp) {
-    LOGE("fopen file \"%s\" failed: %s",
-         path.c_str(), ERRNOMSG);
+    LOGE("fopen file \"%s\" failed: %s", path.c_str(), ERRNOMSG);
     return false;
   }
 
@@ -64,8 +63,7 @@ off_t File::cursor() const
 {
   off_t cus = ftello(m_fp);
   if (cus < 0) {
-    fprintf(stderr, "ftello failed: %s\n",
-            ERRNOMSG);
+    fprintf(stderr, "ftello failed: %s\n", ERRNOMSG);
     return -1;
   }
   return cus;
@@ -87,8 +85,7 @@ bool File::seek_ahead(off_t cnt) const
   }
 
   if (fseeko(m_fp, cnt, SEEK_CUR) < 0) {
-    LOGE("Unable to seek ahead %ld bytes: %s",
-         cnt, ERRNOMSG);
+    LOGE("Unable to seek ahead %ld bytes: %s", cnt, ERRNOMSG);
     return false;
   }
 
@@ -111,8 +108,7 @@ bool File::seek_behind(off_t cnt) const
   }
 
   if (fseeko(m_fp, (-1) * cnt, SEEK_CUR) < 0) {
-    LOGE("Unable to seek behind %ld bytes: %s",
-         cnt, ERRNOMSG);
+    LOGE("Unable to seek behind %ld bytes: %s", cnt, ERRNOMSG);
     return false;
   }
 
@@ -231,8 +227,7 @@ bool File::read_buffer(uint8_t *buf, size_t sz) const
 {
   if (fread(buf, sz, 1, m_fp) < 1) {
     if (ferror(m_fp)) {
-      LOGE("Unable to read %lu bytes to buffer: %s",
-           sz, ERRNOMSG);
+      LOGE("Unable to read %lu bytes to buffer: %s", sz, ERRNOMSG);
       return false;
     }
 
@@ -333,8 +328,7 @@ bool File::write_buffer(const uint8_t *buffer, long len) const
 
   if (fwrite(buffer, len, 1, m_fp) < 1) {
     if (ferror(m_fp)) {
-      LOGE("Unable to write %ld bytes to file: %s",
-           len, ERRNOMSG);
+      LOGE("Unable to write %ld bytes to file: %s", len, ERRNOMSG);
 
       return false;
     }
@@ -372,8 +366,7 @@ std::string File::read_content(const std::string &path)
     return "";
   uint8_t *buf = (uint8_t *) calloc(1, file.size() + 1);
   if (!buf) {
-    LOGE("malloc for file(\"%s\")'s content failed: %s",
-         STR(path), ERRNOMSG);
+    LOGE("malloc for file(\"%s\")'s content failed: %s", STR(path), ERRNOMSG);
     return "";
   }
   if (!file.read_buffer(buf, file.size())) {
