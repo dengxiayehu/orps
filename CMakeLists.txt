@@ -37,8 +37,6 @@ SET_TARGET_PROPERTIES(${TARGET} PROPERTIES LINK_FLAGS "-Wl,-z,now -Wl,-z,relro -
 SET(TARGET xutil)
 
 SET(SOURCES
-  src/xutil/xamf.cc
-  src/xutil/xffmpeg.cc
   src/xutil/xconfig.cc
   src/xutil/xcurl.cc
   src/xutil/xfile.cc

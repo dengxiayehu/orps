@@ -1,7 +1,6 @@
 #include <omxcore.h>
 #include <omx_base_video_port.h>
 #include <omx_base_audio_port.h>
-#include <omx_base_clock_port.h>
 #include <omx_rtmpsrc_component.h>
 
 #include <orps_config.h>
@@ -10,7 +9,6 @@
 
 #define VIDEO_PORT_INDEX 0
 #define AUDIO_PORT_INDEX 1
-#define CLOCK_PORT_INDEX 2
 
 #define DEFAULT_URL_LENGTH  2048
 
@@ -48,9 +46,6 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *openmaxStandC
   compPriv->sPortTypesParam[OMX_PortDomainAudio].nStartPortNumber = AUDIO_PORT_INDEX;
   compPriv->sPortTypesParam[OMX_PortDomainAudio].nPorts = 1;
 
-  compPriv->sPortTypesParam[OMX_PortDomainOther].nStartPortNumber = CLOCK_PORT_INDEX;
-  compPriv->sPortTypesParam[OMX_PortDomainOther].nPorts = 1;
-
   if ((compPriv->sPortTypesParam[OMX_PortDomainVideo].nPorts +
        compPriv->sPortTypesParam[OMX_PortDomainAudio].nPorts +
        compPriv->sPortTypesParam[OMX_PortDomainOther].nPorts) &&
@@ -70,16 +65,10 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *openmaxStandC
     if (!compPriv->ports[AUDIO_PORT_INDEX]) {
       return OMX_ErrorInsufficientResources;
     }
-    compPriv->ports[CLOCK_PORT_INDEX] = (omx_base_PortType *) calloc(1, sizeof(omx_base_video_PortType));
-    if (!compPriv->ports[CLOCK_PORT_INDEX]) {
-      return OMX_ErrorInsufficientResources;
-    }
   }
 
   base_video_port_Constructor(openmaxStandComp, &compPriv->ports[VIDEO_PORT_INDEX], VIDEO_PORT_INDEX, OMX_FALSE);
   base_audio_port_Constructor(openmaxStandComp, &compPriv->ports[AUDIO_PORT_INDEX], AUDIO_PORT_INDEX, OMX_FALSE);
-  base_clock_port_Constructor(openmaxStandComp, &compPriv->ports[CLOCK_PORT_INDEX], CLOCK_PORT_INDEX, OMX_TRUE);
-  compPriv->ports[CLOCK_PORT_INDEX]->sPortParam.bEnabled = OMX_FALSE;
 
   pPortV = (omx_base_video_PortType *) compPriv->ports[VIDEO_PORT_INDEX];
   pPortA = (omx_base_audio_PortType *) compPriv->ports[AUDIO_PORT_INDEX];
@@ -351,6 +340,8 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Init(OMX_COMPONENTTYPE *openmaxStandComp)
     goto out;
   }
 
+  LOGI("Rtmpsrc for url \"%s\" initialized", compPriv->sInputUrl);
+
 out:
   SAFE_FREE(parsed_playpath.av_val);
   return ret == TRUE ? OMX_ErrorNone : OMX_ErrorBadParameter;
@@ -373,6 +364,9 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Deinit(OMX_COMPONENTTYPE *openmaxStandComp)
 
 static void rtmp_log(int level, const char *fmt, va_list args)
 {
+  if (level == RTMP_LOGDEBUG2)
+    return;
+
   char buf[4096];
   vsnprintf(buf, sizeof(buf)-1, fmt, args);
 

@@ -148,17 +148,19 @@ int log_print(const char *curfile, const char *func, const int lineno, const log
       gettimestr(time_buf);
     }
 
-    char tid_buf[10] = {0};
-    if (!(l->flgs&LOG_NOTID)) {
-      snprintf(tid_buf, sizeof(tid_buf), "%ld ", gettid());
+    char pid_buf[10] = { 0 };
+    if (!(l->flgs&LOG_NOPID)) {
+      snprintf(pid_buf, sizeof(pid_buf), "%ld ", (long) getpid());
     }
 
-    int ret = snprintf(buf, sizeof(buf), "%s%s%s[%s:%d (%s)] %s ",
-                       color_level[lvl],
-                       time_buf,
-                       tid_buf,
-                       STR(basename_(curfile)), lineno, func,
-                       lvl_name[lvl]);
+    char tid_buf[10] = {0};
+    if (!(l->flgs&LOG_NOTID)) {
+      snprintf(tid_buf, sizeof(tid_buf), "%ld ", (long) gettid());
+    }
+
+    int ret = snprintf(buf, sizeof(buf), "%s%s%s%s[%s:%d (%s)] %s ",
+                       color_level[lvl], time_buf, pid_buf, tid_buf,
+                       STR(basename_(curfile)), lineno, func, lvl_name[lvl]);
 
     va_list ap;
     va_start(ap, fmt);

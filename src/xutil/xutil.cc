@@ -238,7 +238,7 @@ std::string time_label()
 }
 
 byte *put_be16(byte *output, uint16_t val)
-{        
+{
   output[1] = val & 0xff;
   output[0] = val >> 8;
   return output + 2;

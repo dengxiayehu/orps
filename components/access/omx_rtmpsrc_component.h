@@ -22,7 +22,9 @@ DERIVEDCLASS(omx_rtmpsrc_component_PrivateType, omx_base_source_PrivateType)
 #define omx_rtmpsrc_component_PrivateType_FIELDS omx_base_source_PrivateType_FIELDS \
   OMX_BUFFERHEADERTYPE *pTmpOutputBuffer; \
   OMX_STRING sInputUrl; \
-  RTMP *pRTMP;
+  RTMP *pRTMP; \
+  OMX_VIDEO_CODINGTYPE video_codec; \
+  OMX_AUDIO_CODINGTYPE audio_codec;
 ENDCLASS(omx_rtmpsrc_component_PrivateType)
 
 OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *openmaxStandComp, OMX_STRING cComponentName);

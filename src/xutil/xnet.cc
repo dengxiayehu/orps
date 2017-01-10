@@ -712,7 +712,7 @@ bool is_multicast_address(NetAddressBits address)
 {
   NetAddressBits address_in_network_order = htonl(address);
   return address_in_network_order >  0xE00000FF &&
-    address_in_network_order <= 0xEFFFFFFF;
+         address_in_network_order <= 0xEFFFFFFF;
 }
 
 }

@@ -34,6 +34,7 @@ enum log_level {
 #define LOG_NOLVL       (1<<3)
 #define LOG_STDERR      (1<<4)
 #define LOG_NOTID       (1<<5)
+#define LOG_NOPID       (1<<6)
 #define LOG_DEFAULT     (LOG_STDERR | LOG_TRUNC)
 
 int log_add_dst(const char *logfile,

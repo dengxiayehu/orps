@@ -30,12 +30,10 @@ extern "C" {
 
 typedef struct appPrivateType {
   tsem_t *rtmpsrcEventSem;
-  tsem_t *clockEventSem;
   tsem_t *eofSem;
   OMX_HANDLETYPE rtmpsrchandle;
-  OMX_HANDLETYPE clocksrchandle;
-  OMX_HANDLETYPE videoschdhandle;
   OMX_BUFFERHEADERTYPE *outBufferRtmpsrcVideo[2], *outBufferRtmpsrcAudio[2];
+  OMX_BOOL bEOS;
 } appPrivateType;
 
 OMX_ERRORTYPE rtmpsrcEventHandler(
@@ -47,19 +45,6 @@ OMX_ERRORTYPE rtmpsrcEventHandler(
     OMX_OUT OMX_PTR pEventData);
 
 OMX_ERRORTYPE rtmpsrcFillBufferDone(
-    OMX_OUT OMX_HANDLETYPE hComponent,
-    OMX_OUT OMX_PTR pAppData,
-    OMX_OUT OMX_BUFFERHEADERTYPE *pBuffer);
-
-OMX_ERRORTYPE clocksrcEventHandler(
-    OMX_OUT OMX_HANDLETYPE hComponent,
-    OMX_OUT OMX_PTR pAppData,
-    OMX_OUT OMX_EVENTTYPE eEvent,
-    OMX_OUT OMX_U32 Data1,
-    OMX_OUT OMX_U32 Data2,
-    OMX_OUT OMX_PTR pEventData);
-
-OMX_ERRORTYPE clocksrcFillBufferDone(
     OMX_OUT OMX_HANDLETYPE hComponent,
     OMX_OUT OMX_PTR pAppData,
     OMX_OUT OMX_BUFFERHEADERTYPE *pBuffer);
