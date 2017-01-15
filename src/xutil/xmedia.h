@@ -56,6 +56,10 @@ struct AVCDecorderConfigurationRecord {
   byte num_of_pps;
   uint16_t pps_length;
   byte *pps;
+
+  AVCDecorderConfigurationRecord();
+  ~AVCDecorderConfigurationRecord();
+  int parse_from(const uint8_t *data, const uint32_t size);
 };
 
 void print_avc_dcr(const AVCDecorderConfigurationRecord &avc_dcr);
@@ -63,6 +67,8 @@ void print_avc_dcr(const AVCDecorderConfigurationRecord &avc_dcr);
 struct AudioSpecificConfig {
   byte dat[2];
 };
+int generate_asc(byte buff[],
+                 uint8_t profile, uint8_t sample_rate_idx, uint8_t channel);
 int generate_asc(AudioSpecificConfig &asc,
                  uint8_t profile, uint8_t sample_rate_idx, uint8_t channel);
 int parse_asc(const AudioSpecificConfig &asc,

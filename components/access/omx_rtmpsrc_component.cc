@@ -4,6 +4,8 @@
 #include <omx_rtmpsrc_component.h>
 
 #include <orps_config.h>
+#include <get_bits.h>
+#include <xmedia.h>
 #include <xutil.h>
 #include <xlog.h>
 
@@ -12,293 +14,458 @@
 
 #define DEFAULT_URL_LENGTH  2048
 
-static OMX_U32 noRtmpsrcInstance = 0;
+static OMX_U32 rtmpsrc_instance = 0;
 
 static void rtmp_log(int level, const char *fmt, va_list args);
 
-OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *openmaxStandComp, OMX_STRING cComponentName)
+OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX_STRING comp_name)
 {
-  OMX_ERRORTYPE omxErr = OMX_ErrorNone;
-  omx_rtmpsrc_component_PrivateType *compPriv;
-  omx_base_video_PortType *pPortV;
-  omx_base_audio_PortType *pPortA;
+  OMX_ERRORTYPE omx_err = OMX_ErrorNone;
+  omx_rtmpsrc_component_PrivateType *comp_priv;
+  omx_base_video_PortType *port_v;
+  omx_base_audio_PortType *port_a;
 
   RM_RegisterComponent((char *) RTMPSRC_COMP_NAME, MAX_RTMPSRC_COMPONENTS);
 
-  if (!openmaxStandComp->pComponentPrivate) {
-    openmaxStandComp->pComponentPrivate = (omx_rtmpsrc_component_PrivateType *) calloc(1, sizeof(omx_rtmpsrc_component_PrivateType));
-    if (openmaxStandComp->pComponentPrivate == NULL) {
+  if (!omx_comp->pComponentPrivate) {
+    omx_comp->pComponentPrivate = (omx_rtmpsrc_component_PrivateType *) calloc(1, sizeof(omx_rtmpsrc_component_PrivateType));
+    if (omx_comp->pComponentPrivate == NULL) {
       return OMX_ErrorInsufficientResources;
     }
   }
 
-  compPriv = (omx_rtmpsrc_component_PrivateType *) openmaxStandComp->pComponentPrivate;
-  compPriv->ports = NULL;
+  comp_priv = (omx_rtmpsrc_component_PrivateType *) omx_comp->pComponentPrivate;
+  comp_priv->ports = NULL;
 
-  omxErr = omx_base_source_Constructor(openmaxStandComp, cComponentName);
-  if (omxErr != OMX_ErrorNone) {
+  omx_err = omx_base_source_Constructor(omx_comp, comp_name);
+  if (omx_err != OMX_ErrorNone) {
     return OMX_ErrorInsufficientResources;
   }
 
-  compPriv->sPortTypesParam[OMX_PortDomainVideo].nStartPortNumber = VIDEO_PORT_INDEX;
-  compPriv->sPortTypesParam[OMX_PortDomainVideo].nPorts = 1;
+  comp_priv->sPortTypesParam[OMX_PortDomainVideo].nStartPortNumber = VIDEO_PORT_INDEX;
+  comp_priv->sPortTypesParam[OMX_PortDomainVideo].nPorts = 1;
 
-  compPriv->sPortTypesParam[OMX_PortDomainAudio].nStartPortNumber = AUDIO_PORT_INDEX;
-  compPriv->sPortTypesParam[OMX_PortDomainAudio].nPorts = 1;
+  comp_priv->sPortTypesParam[OMX_PortDomainAudio].nStartPortNumber = AUDIO_PORT_INDEX;
+  comp_priv->sPortTypesParam[OMX_PortDomainAudio].nPorts = 1;
 
-  if ((compPriv->sPortTypesParam[OMX_PortDomainVideo].nPorts +
-       compPriv->sPortTypesParam[OMX_PortDomainAudio].nPorts +
-       compPriv->sPortTypesParam[OMX_PortDomainOther].nPorts) &&
-      !compPriv->ports) {
-    compPriv->ports = (omx_base_PortType**) calloc(compPriv->sPortTypesParam[OMX_PortDomainVideo].nPorts +
-                                                   compPriv->sPortTypesParam[OMX_PortDomainAudio].nPorts +
-                                                   compPriv->sPortTypesParam[OMX_PortDomainOther].nPorts, sizeof(omx_base_PortType**));
-    if (!compPriv->ports) {
+  if ((comp_priv->sPortTypesParam[OMX_PortDomainVideo].nPorts +
+       comp_priv->sPortTypesParam[OMX_PortDomainAudio].nPorts +
+       comp_priv->sPortTypesParam[OMX_PortDomainOther].nPorts) &&
+      !comp_priv->ports) {
+    comp_priv->ports = (omx_base_PortType**) calloc(comp_priv->sPortTypesParam[OMX_PortDomainVideo].nPorts +
+                                                   comp_priv->sPortTypesParam[OMX_PortDomainAudio].nPorts +
+                                                   comp_priv->sPortTypesParam[OMX_PortDomainOther].nPorts, sizeof(omx_base_PortType**));
+    if (!comp_priv->ports) {
       return OMX_ErrorInsufficientResources;
     }
 
-    compPriv->ports[VIDEO_PORT_INDEX] = (omx_base_PortType *) calloc(1, sizeof(omx_base_video_PortType));
-    if (!compPriv->ports[VIDEO_PORT_INDEX]) {
+    comp_priv->ports[VIDEO_PORT_INDEX] = (omx_base_PortType *) calloc(1, sizeof(omx_base_video_PortType));
+    if (!comp_priv->ports[VIDEO_PORT_INDEX]) {
       return OMX_ErrorInsufficientResources;
     }
-    compPriv->ports[AUDIO_PORT_INDEX] = (omx_base_PortType *) calloc(1, sizeof(omx_base_video_PortType));
-    if (!compPriv->ports[AUDIO_PORT_INDEX]) {
+    comp_priv->ports[AUDIO_PORT_INDEX] = (omx_base_PortType *) calloc(1, sizeof(omx_base_video_PortType));
+    if (!comp_priv->ports[AUDIO_PORT_INDEX]) {
       return OMX_ErrorInsufficientResources;
     }
   }
 
-  base_video_port_Constructor(openmaxStandComp, &compPriv->ports[VIDEO_PORT_INDEX], VIDEO_PORT_INDEX, OMX_FALSE);
-  base_audio_port_Constructor(openmaxStandComp, &compPriv->ports[AUDIO_PORT_INDEX], AUDIO_PORT_INDEX, OMX_FALSE);
+  base_video_port_Constructor(omx_comp, &comp_priv->ports[VIDEO_PORT_INDEX], VIDEO_PORT_INDEX, OMX_FALSE);
+  base_audio_port_Constructor(omx_comp, &comp_priv->ports[AUDIO_PORT_INDEX], AUDIO_PORT_INDEX, OMX_FALSE);
 
-  pPortV = (omx_base_video_PortType *) compPriv->ports[VIDEO_PORT_INDEX];
-  pPortA = (omx_base_audio_PortType *) compPriv->ports[AUDIO_PORT_INDEX];
+  port_v = (omx_base_video_PortType *) comp_priv->ports[VIDEO_PORT_INDEX];
+  port_a = (omx_base_audio_PortType *) comp_priv->ports[AUDIO_PORT_INDEX];
 
-  pPortV->sPortParam.nBufferSize = DEFAULT_OUT_BUFFER_SIZE;
-  pPortA->sPortParam.nBufferSize = DEFAULT_OUT_BUFFER_SIZE;
+  port_v->sPortParam.nBufferSize = DEFAULT_OUT_BUFFER_SIZE;
+  port_a->sPortParam.nBufferSize = DEFAULT_OUT_BUFFER_SIZE;
 
-  compPriv->BufferMgmtCallback = omx_rtmpsrc_component_BufferMgmtCallback;
-  compPriv->BufferMgmtFunction = omx_base_source_twoport_BufferMgmtFunction;
+  comp_priv->BufferMgmtCallback = omx_rtmpsrc_component_BufferMgmtCallback;
+  comp_priv->BufferMgmtFunction = omx_base_source_twoport_BufferMgmtFunction;
 
-  compPriv->destructor = omx_rtmpsrc_component_Destructor;
-  compPriv->messageHandler = omx_rtmpsrc_component_MessageHandler;
+  comp_priv->destructor = omx_rtmpsrc_component_Destructor;
+  comp_priv->messageHandler = omx_rtmpsrc_component_MessageHandler;
 
-  ++noRtmpsrcInstance;
-  if (noRtmpsrcInstance > MAX_RTMPSRC_COMPONENTS) {
+  ++rtmpsrc_instance;
+  if (rtmpsrc_instance > MAX_RTMPSRC_COMPONENTS) {
     return OMX_ErrorInsufficientResources;
   }
 
-  openmaxStandComp->SetParameter = omx_rtmpsrc_component_SetParameter;
-  openmaxStandComp->GetParameter = omx_rtmpsrc_component_GetParameter;
-  openmaxStandComp->GetExtensionIndex = omx_rtmpsrc_component_GetExtensionIndex;
+  omx_comp->SetParameter = omx_rtmpsrc_component_SetParameter;
+  omx_comp->GetParameter = omx_rtmpsrc_component_GetParameter;
+  omx_comp->GetExtensionIndex = omx_rtmpsrc_component_GetExtensionIndex;
 
-  compPriv->pTmpOutputBuffer = (OMX_BUFFERHEADERTYPE *) calloc(1, sizeof(OMX_BUFFERHEADERTYPE));
-  if (!compPriv->pTmpOutputBuffer) {
+  comp_priv->tmp_output_buffer = (OMX_BUFFERHEADERTYPE *) calloc(1, sizeof(OMX_BUFFERHEADERTYPE));
+  if (!comp_priv->tmp_output_buffer) {
     return OMX_ErrorInsufficientResources;
   }
-  compPriv->pTmpOutputBuffer->pBuffer = (OMX_U8 *) calloc(DEFAULT_OUT_BUFFER_SIZE, 1);
-  compPriv->pTmpOutputBuffer->nFilledLen = 0;
-  compPriv->pTmpOutputBuffer->nAllocLen = DEFAULT_OUT_BUFFER_SIZE;
-  compPriv->pTmpOutputBuffer->nOffset = 0;
+  comp_priv->tmp_output_buffer->pBuffer = (OMX_U8 *) calloc(DEFAULT_OUT_BUFFER_SIZE, 1);
+  comp_priv->tmp_output_buffer->nFilledLen = 0;
+  comp_priv->tmp_output_buffer->nAllocLen = DEFAULT_OUT_BUFFER_SIZE;
+  comp_priv->tmp_output_buffer->nOffset = 0;
 
-  compPriv->sInputUrl = (OMX_STRING) calloc(DEFAULT_URL_LENGTH, 1);
-  if (!compPriv->sInputUrl) {
+  comp_priv->input_url = (OMX_STRING) calloc(DEFAULT_URL_LENGTH, 1);
+  if (!comp_priv->input_url) {
     return OMX_ErrorInsufficientResources;
   }
 
-  return omxErr;
+  comp_priv->rtmp_ready = OMX_FALSE;
+
+  if (!comp_priv->rtmp_sync_sem) {
+    comp_priv->rtmp_sync_sem = (tsem_t *) calloc(1, sizeof(tsem_t));
+    if (!comp_priv->rtmp_sync_sem) {
+      return OMX_ErrorInsufficientResources;
+    }
+    tsem_init(comp_priv->rtmp_sync_sem, 0);
+  }
+
+  return omx_err;
 }
 
-OMX_ERRORTYPE omx_rtmpsrc_component_Destructor(OMX_COMPONENTTYPE *openmaxStandComp)
+OMX_ERRORTYPE omx_rtmpsrc_component_Destructor(OMX_COMPONENTTYPE *omx_comp)
 {
-  omx_rtmpsrc_component_PrivateType *compPriv = (omx_rtmpsrc_component_PrivateType *) openmaxStandComp->pComponentPrivate;
+  omx_rtmpsrc_component_PrivateType *comp_priv = (omx_rtmpsrc_component_PrivateType *) omx_comp->pComponentPrivate;
   OMX_U32 i;
 
-  if (compPriv->sInputUrl) {
-    free(compPriv->sInputUrl);
-    compPriv->sInputUrl = NULL;
+  if (comp_priv->rtmp_sync_sem) {
+    tsem_deinit(comp_priv->rtmp_sync_sem);
+    SAFE_FREE(comp_priv->rtmp_sync_sem);
   }
 
-  if (compPriv->pTmpOutputBuffer) {
-    free(compPriv->pTmpOutputBuffer);
-    compPriv->pTmpOutputBuffer = NULL;
-  }
+  SAFE_FREE(comp_priv->input_url);
 
-  if (compPriv->ports) {
-    for (i = 0; i < compPriv->sPortTypesParam[OMX_PortDomainVideo].nPorts +
-                    compPriv->sPortTypesParam[OMX_PortDomainAudio].nPorts +
-                    compPriv->sPortTypesParam[OMX_PortDomainOther].nPorts; ++i) {
-      if (compPriv->ports[i]) {
-        compPriv->ports[i]->PortDestructor(compPriv->ports[i]);
-        compPriv->ports[i] = NULL;
+  SAFE_FREE(comp_priv->tmp_output_buffer);
+
+  if (comp_priv->ports) {
+    for (i = 0; i < comp_priv->sPortTypesParam[OMX_PortDomainVideo].nPorts +
+                    comp_priv->sPortTypesParam[OMX_PortDomainAudio].nPorts +
+                    comp_priv->sPortTypesParam[OMX_PortDomainOther].nPorts; ++i) {
+      if (comp_priv->ports[i]) {
+        comp_priv->ports[i]->PortDestructor(comp_priv->ports[i]);
+        comp_priv->ports[i] = NULL;
       }
     }
-    free(compPriv->ports);
-    compPriv->ports = NULL;
+    SAFE_FREE(comp_priv->ports);
   }
 
-  --noRtmpsrcInstance;
-  return omx_base_source_Destructor(openmaxStandComp);
+  --rtmpsrc_instance;
+  return omx_base_source_Destructor(omx_comp);
 }
 
-void omx_rtmpsrc_component_BufferMgmtCallback(OMX_COMPONENTTYPE *openmaxStandComp, OMX_BUFFERHEADERTYPE *pOutputBuffer)
+void omx_rtmpsrc_component_BufferMgmtCallback(OMX_COMPONENTTYPE *omx_comp, OMX_BUFFERHEADERTYPE *output_buffer)
 {
+  omx_rtmpsrc_component_PrivateType *comp_priv = (omx_rtmpsrc_component_PrivateType *) omx_comp->pComponentPrivate;
+  OMX_BUFFERHEADERTYPE *temp_buffer;
+  RTMPPacket packet = { 0 };
+
+  temp_buffer = comp_priv->tmp_output_buffer;
+
+  if (!comp_priv->rtmp_ready) {
+    if (comp_priv->state == OMX_StateExecuting) {
+      tsem_down(comp_priv->rtmp_sync_sem);
+    } else {
+      return;
+    }
+  }
+
+  output_buffer->nFilledLen = 0;
+  output_buffer->nOffset = 0;
+
+#define BAIL_RETURN do { \
+  RTMPPacket_Free(&packet); \
+  output_buffer->nFlags = OMX_BUFFERFLAG_EOS; \
+  return; \
+} while (0)
+
+again:
+  if (temp_buffer->nFilledLen == 0) {
+    if (!comp_priv->rtmp->m_bPlaying ||
+        !RTMP_IsConnected(comp_priv->rtmp) ||
+        !RTMP_ReadPacket(comp_priv->rtmp, &packet)) {
+      output_buffer->nFlags = OMX_BUFFERFLAG_EOS;
+    } else {
+      if (RTMPPacket_IsReady(&packet)) {
+        if (!packet.m_nBodySize) {
+          goto again;
+        }
+
+        xutil::GetBitContext bits;
+        init_get_bits(&bits, (const OMX_U8 *) packet.m_body, packet.m_nBodySize*8);
+
+        OMX_BUFFERHEADERTYPE *dst_buffer;
+
+        if (packet.m_packetType == RTMP_PACKET_TYPE_VIDEO) {
+          get_bits(&bits, 4); // skip frame_type
+          OMX_U8 codec_id = get_bits(&bits, 4);
+          if (codec_id != 7) {
+            LOGE("Video codec(%d) not supported for url \"%s\"", codec_id, comp_priv->input_url);
+            BAIL_RETURN;
+          }
+
+          OMX_U8 avc_pkt_type = get_bits(&bits, 8);
+          get_bits(&bits, 24); // skip composition_time
+          OMX_U32 data_offset = (4 + 4 + 8 + 24)/8;
+          const OMX_U8 *data = (const OMX_U8 *) packet.m_body + data_offset;
+          OMX_U32 data_size = packet.m_nBodySize - data_offset;
+
+          if (output_buffer->nOutputPortIndex == VIDEO_PORT_INDEX) {
+            dst_buffer = output_buffer;
+          } else {
+            dst_buffer = temp_buffer;
+            dst_buffer->nOutputPortIndex = VIDEO_PORT_INDEX;
+          }
+
+          if (avc_pkt_type == 0 /* AVC sequence header */) {
+            memcpy(dst_buffer->pBuffer, data, data_size);
+            dst_buffer->nFilledLen = data_size;
+            dst_buffer->nFlags = OMX_BUFFERFLAG_CODECCONFIG;
+          } else if (avc_pkt_type == 1 /* AVC NALU */) {
+            if (dst_buffer->nAllocLen >= data_size) {
+              memcpy(dst_buffer->pBuffer, data, data_size);
+              dst_buffer->nFilledLen = data_size;
+              dst_buffer->nTimeStamp = packet.m_nTimeStamp * 1000;
+              if (!comp_priv->first_timestamp_flag[0]) {
+                comp_priv->first_timestamp_flag[0] = OMX_TRUE;
+                dst_buffer->nFlags = OMX_BUFFERFLAG_STARTTIME;
+              }
+            } else {
+              LOGE("Buffer size=%d less than pkt size=%d buffer=%p port_index=%d",
+                   dst_buffer->nAllocLen, data_size, dst_buffer, dst_buffer->nOutputPortIndex);
+            }
+          } else if (avc_pkt_type == 2 /* AVC end of sequence */) {
+            // Fall through
+          } else {
+            LOGE("Unknown avc packet type(%d) for url \"%s\"", avc_pkt_type, comp_priv->input_url);
+            BAIL_RETURN;
+          }
+        } else if (packet.m_packetType == RTMP_PACKET_TYPE_AUDIO) {
+          OMX_U8 sound_format = get_bits(&bits, 4);
+          OMX_U8 sound_rate = get_bits(&bits, 2);
+          OMX_U8 sound_size = get_bits(&bits, 1);
+          OMX_U8 sound_type = get_bits(&bits, 1);
+
+          if (sound_format != 10 || sound_rate != 3 || sound_size != 1 || sound_type != 1) {
+            LOGE("Unsupported audio paket(sound_format=%d sound_rate=%d sound_size=%d sound_type=%d) for url \"%s\"",
+                 sound_format, sound_rate, sound_size, sound_type, comp_priv->input_url);
+            BAIL_RETURN;
+          }
+
+          OMX_U8 aac_packet_type = get_bits(&bits, 8);
+          OMX_U32 data_offset = (4 + 2 + 1 + 1 + 8)/8;
+          const OMX_U8 *data = (const OMX_U8 *) packet.m_body + data_offset;
+          OMX_U32 data_size = packet.m_nBodySize - data_offset;
+
+          if (output_buffer->nOutputPortIndex == AUDIO_PORT_INDEX) {
+            dst_buffer = output_buffer;
+          } else {
+            dst_buffer = temp_buffer;
+            dst_buffer->nOutputPortIndex = AUDIO_PORT_INDEX;
+          }
+
+          if (aac_packet_type == 0 /* AAC sequence header */) {
+            if (data_size >= 2) {
+              memcpy(dst_buffer->pBuffer, data, data_size);
+              dst_buffer->nFilledLen = data_size;
+            } else {
+              xmedia::generate_asc(dst_buffer->pBuffer,
+                                   xmedia::str_to_audioprof("LC"), xmedia::str_to_samplerate_idx("44100"), 2);
+              dst_buffer->nFilledLen = 2;
+            }
+            dst_buffer->nFlags = OMX_BUFFERFLAG_CODECCONFIG;
+          } else if (aac_packet_type == 1 /* AAC raw */) {
+            memcpy(dst_buffer->pBuffer, data, data_size);
+            dst_buffer->nFilledLen = data_size;
+            dst_buffer->nTimeStamp = packet.m_nTimeStamp * 1000;
+            if (!comp_priv->first_timestamp_flag[1]) {
+              comp_priv->first_timestamp_flag[1] = OMX_TRUE;
+              dst_buffer->nFlags = OMX_BUFFERFLAG_STARTTIME;
+            }
+          } else {
+            LOGE("Unknown aac_packet_type(%d) for url \"%s\"", aac_packet_type, comp_priv->input_url);
+            BAIL_RETURN;
+          }
+        } else if (packet.m_packetType == RTMP_PACKET_TYPE_INFO) {
+          // Fall through
+        }
+
+        RTMPPacket_Free(&packet);
+      } else {
+        goto again;
+      }
+    }
+  } else {
+    if (((temp_buffer->nOutputPortIndex == VIDEO_PORT_INDEX) && (output_buffer->nOutputPortIndex == VIDEO_PORT_INDEX)) ||
+        ((temp_buffer->nOutputPortIndex == AUDIO_PORT_INDEX) && (output_buffer->nOutputPortIndex == AUDIO_PORT_INDEX))) {
+      if (output_buffer->nAllocLen >= temp_buffer->nFilledLen) {
+        memcpy(output_buffer->pBuffer, temp_buffer->pBuffer, temp_buffer->nFilledLen);
+        output_buffer->nFilledLen = temp_buffer->nFilledLen;
+        output_buffer->nTimeStamp = temp_buffer->nTimeStamp;
+        output_buffer->nFlags = temp_buffer->nFlags;
+        temp_buffer->nFilledLen = 0;
+        temp_buffer->nFlags = 0;
+      } else {
+        LOGE("Buffer size=%d less than pkt size=%d buffer=%p port_index=%d",
+             output_buffer->nAllocLen, temp_buffer->nFilledLen, output_buffer, output_buffer->nOutputPortIndex);
+      }
+    }
+  }
+
+#undef BAIL_RETURN
 }
 
 OMX_ERRORTYPE omx_rtmpsrc_component_SetParameter(
-    OMX_IN OMX_HANDLETYPE hComponent,
+    OMX_IN OMX_HANDLETYPE hcomp,
     OMX_IN OMX_INDEXTYPE nParamIndex,
-    OMX_IN OMX_PTR ComponentParameterStructure)
+    OMX_IN OMX_PTR comp_parm)
 {
-  OMX_ERRORTYPE omxErr = OMX_ErrorNone;
-  OMX_U32 nUrlLength;
+  OMX_ERRORTYPE omx_err = OMX_ErrorNone;
+  OMX_U32 url_length;
 
-  OMX_COMPONENTTYPE *openmaxStandComp = (OMX_COMPONENTTYPE *) hComponent;
-  omx_rtmpsrc_component_PrivateType *compPriv = (omx_rtmpsrc_component_PrivateType *) openmaxStandComp->pComponentPrivate;
+  OMX_COMPONENTTYPE *omx_comp = (OMX_COMPONENTTYPE *) hcomp;
+  omx_rtmpsrc_component_PrivateType *comp_priv = (omx_rtmpsrc_component_PrivateType *) omx_comp->pComponentPrivate;
 
   LOGI("Setting parameter %i", nParamIndex);
 
-  if (ComponentParameterStructure == NULL) {
+  if (comp_parm == NULL) {
     return OMX_ErrorBadParameter;
   }
 
   switch ((long) nParamIndex) {
   case OMX_IndexVendorInputUrl:
-    nUrlLength = strlen(((char *) ComponentParameterStructure)) + 1;
-    if (nUrlLength > DEFAULT_URL_LENGTH) {
-      free(compPriv->sInputUrl);
-      compPriv->sInputUrl = (char *) malloc(nUrlLength);
+    url_length = strlen(((char *) comp_parm)) + 1;
+    if (url_length > DEFAULT_URL_LENGTH) {
+      SAFE_FREE(comp_priv->input_url);
+      comp_priv->input_url = (char *) malloc(url_length);
     }
-    strcpy(compPriv->sInputUrl, (char *) ComponentParameterStructure);
+    strcpy(comp_priv->input_url, (char *) comp_parm);
     break;
   default:
-    return omx_base_component_SetParameter(hComponent, nParamIndex, ComponentParameterStructure);
+    return omx_base_component_SetParameter(hcomp, nParamIndex, comp_parm);
   }
-  return omxErr;
+  return omx_err;
 }
 
 OMX_ERRORTYPE omx_rtmpsrc_component_GetParameter(
-    OMX_IN OMX_HANDLETYPE hComponent,
+    OMX_IN OMX_HANDLETYPE hcomp,
     OMX_IN OMX_INDEXTYPE nParamIndex,
-    OMX_INOUT OMX_PTR ComponentParameterStructure)
+    OMX_INOUT OMX_PTR comp_parm)
 {
-  OMX_ERRORTYPE omxErr = OMX_ErrorNone;
-  OMX_PORT_PARAM_TYPE *pVideoPortParam, *pAudioPortParam;
-  OMX_VIDEO_PARAM_PORTFORMATTYPE *pVideoPortFormat;
-  OMX_AUDIO_PARAM_PORTFORMATTYPE *pAudioPortFormat;
+  OMX_ERRORTYPE omx_err = OMX_ErrorNone;
+  OMX_PORT_PARAM_TYPE *video_port_parm, *audio_port_parm;
+  OMX_VIDEO_PARAM_PORTFORMATTYPE *video_port_format;
+  OMX_AUDIO_PARAM_PORTFORMATTYPE *audio_port_format;
 
-  OMX_COMPONENTTYPE *openmaxStandComp = (OMX_COMPONENTTYPE *) hComponent;
-  omx_rtmpsrc_component_PrivateType *compPriv = (omx_rtmpsrc_component_PrivateType *) openmaxStandComp->pComponentPrivate;
-  omx_base_video_PortType *pVideoPort = (omx_base_video_PortType *) compPriv->ports[OMX_BASE_SOURCE_OUTPUTPORT_INDEX];
-  omx_base_audio_PortType *pAudioPort = (omx_base_audio_PortType *) compPriv->ports[OMX_BASE_SOURCE_OUTPUTPORT_INDEX_1];
+  OMX_COMPONENTTYPE *omx_comp = (OMX_COMPONENTTYPE *) hcomp;
+  omx_rtmpsrc_component_PrivateType *comp_priv = (omx_rtmpsrc_component_PrivateType *) omx_comp->pComponentPrivate;
+  omx_base_video_PortType *video_port = (omx_base_video_PortType *) comp_priv->ports[OMX_BASE_SOURCE_OUTPUTPORT_INDEX];
+  omx_base_audio_PortType *audio_port = (omx_base_audio_PortType *) comp_priv->ports[OMX_BASE_SOURCE_OUTPUTPORT_INDEX_1];
 
   LOGI("Getting parameter %i", nParamIndex);
 
-  if (ComponentParameterStructure == NULL) {
+  if (comp_parm == NULL) {
     return OMX_ErrorBadParameter;
   }
 
   switch ((long) nParamIndex) {
   case OMX_IndexParamVideoInit:
-    pVideoPortParam = (OMX_PORT_PARAM_TYPE *) ComponentParameterStructure;
-    if ((omxErr = checkHeader(ComponentParameterStructure, sizeof(OMX_PORT_PARAM_TYPE))) != OMX_ErrorNone) {
+    video_port_parm = (OMX_PORT_PARAM_TYPE *) comp_parm;
+    if ((omx_err = checkHeader(comp_parm, sizeof(OMX_PORT_PARAM_TYPE))) != OMX_ErrorNone) {
       break;
     }
-    pVideoPortParam->nStartPortNumber = VIDEO_PORT_INDEX;
-    pVideoPortParam->nPorts = 1;
+    video_port_parm->nStartPortNumber = VIDEO_PORT_INDEX;
+    video_port_parm->nPorts = 1;
     break;
   case OMX_IndexParamVideoPortFormat:
-    pVideoPortFormat = (OMX_VIDEO_PARAM_PORTFORMATTYPE *) ComponentParameterStructure;
-    if ((omxErr = checkHeader(ComponentParameterStructure, sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE))) != OMX_ErrorNone) {
+    video_port_format = (OMX_VIDEO_PARAM_PORTFORMATTYPE *) comp_parm;
+    if ((omx_err = checkHeader(comp_parm, sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE))) != OMX_ErrorNone) {
       break;
     }
-    if (pVideoPortFormat->nPortIndex < 1) {
-      memcpy(pVideoPortFormat, &pVideoPort->sVideoParam, sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE));
+    if (video_port_format->nPortIndex < 1) {
+      memcpy(video_port_format, &video_port->sVideoParam, sizeof(OMX_VIDEO_PARAM_PORTFORMATTYPE));
     } else {
       return OMX_ErrorBadParameter;
     }
     break;
   case OMX_IndexParamAudioInit:
-    pAudioPortParam = (OMX_PORT_PARAM_TYPE *) ComponentParameterStructure;
-    if ((omxErr = checkHeader(ComponentParameterStructure, sizeof(OMX_PORT_PARAM_TYPE))) != OMX_ErrorNone) {
+    audio_port_parm = (OMX_PORT_PARAM_TYPE *) comp_parm;
+    if ((omx_err = checkHeader(comp_parm, sizeof(OMX_PORT_PARAM_TYPE))) != OMX_ErrorNone) {
       break;
     }
-    pAudioPortParam->nStartPortNumber = AUDIO_PORT_INDEX;
-    pAudioPortParam->nPorts = 1;
+    audio_port_parm->nStartPortNumber = AUDIO_PORT_INDEX;
+    audio_port_parm->nPorts = 1;
     break;
   case OMX_IndexParamAudioPortFormat:
-    pAudioPortFormat = (OMX_AUDIO_PARAM_PORTFORMATTYPE *) ComponentParameterStructure;
-    if ((omxErr = checkHeader(ComponentParameterStructure, sizeof(OMX_AUDIO_PARAM_PORTFORMATTYPE))) != OMX_ErrorNone) {
+    audio_port_format = (OMX_AUDIO_PARAM_PORTFORMATTYPE *) comp_parm;
+    if ((omx_err = checkHeader(comp_parm, sizeof(OMX_AUDIO_PARAM_PORTFORMATTYPE))) != OMX_ErrorNone) {
       break;
     }
-    if (pAudioPortFormat->nPortIndex <= 1) {
-      memcpy(pAudioPortFormat, &pAudioPort->sAudioParam, sizeof(OMX_AUDIO_PARAM_PORTFORMATTYPE));
+    if (audio_port_format->nPortIndex <= 1) {
+      memcpy(audio_port_format, &audio_port->sAudioParam, sizeof(OMX_AUDIO_PARAM_PORTFORMATTYPE));
     } else {
       return OMX_ErrorBadParameter;
     }
     break;
   case OMX_IndexVendorInputUrl:
-    strcpy((char *) ComponentParameterStructure, compPriv->sInputUrl);
+    strcpy((char *) comp_parm, comp_priv->input_url);
     break;
   default:
-      return omx_base_component_GetParameter(hComponent, nParamIndex, ComponentParameterStructure);
+      return omx_base_component_GetParameter(hcomp, nParamIndex, comp_parm);
   }
-  return omxErr;
+  return omx_err;
 }
 
 OMX_ERRORTYPE omx_rtmpsrc_component_GetExtensionIndex(
-    OMX_IN OMX_HANDLETYPE hComponent,
+    OMX_IN OMX_HANDLETYPE hcomp,
     OMX_IN OMX_STRING cParameterName,
-    OMX_OUT OMX_INDEXTYPE *pIndexType)
+    OMX_OUT OMX_INDEXTYPE *index)
 {
   LOGI("Get extension index %s", cParameterName);
 
   if (!strcmp(cParameterName, "OMX.ST.index.param.inputurl")) {
-    *pIndexType = (OMX_INDEXTYPE) OMX_IndexVendorInputUrl;
+    *index = (OMX_INDEXTYPE) OMX_IndexVendorInputUrl;
   } else {
     return OMX_ErrorBadParameter;
   }
   return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE omx_rtmpsrc_component_MessageHandler(OMX_COMPONENTTYPE *openmaxStandComp, internalRequestMessageType *message)
+OMX_ERRORTYPE omx_rtmpsrc_component_MessageHandler(OMX_COMPONENTTYPE *omx_comp, internalRequestMessageType *message)
 {
-  omx_rtmpsrc_component_PrivateType *compPriv = (omx_rtmpsrc_component_PrivateType *) openmaxStandComp->pComponentPrivate;
-  OMX_ERRORTYPE omxErr = OMX_ErrorNone;
-  OMX_STATETYPE oldState = compPriv->state;
+  omx_rtmpsrc_component_PrivateType *comp_priv = (omx_rtmpsrc_component_PrivateType *) omx_comp->pComponentPrivate;
+  OMX_ERRORTYPE omx_err = OMX_ErrorNone;
+  OMX_STATETYPE oldState = comp_priv->state;
 
-  omxErr = omx_base_component_MessageHandler(openmaxStandComp, message);
+  omx_err = omx_base_component_MessageHandler(omx_comp, message);
 
   if (message->messageType == OMX_CommandStateSet) {
     if ((message->messageParam == OMX_StateExecuting) && (oldState == OMX_StateIdle)) {
-      omxErr = omx_rtmpsrc_component_Init(openmaxStandComp);
-      if (omxErr != OMX_ErrorNone) {
-        LOGE("Rtmpsrc Init failed Error=%x", omxErr);
-        return omxErr;
+      omx_err = omx_rtmpsrc_component_Init(omx_comp);
+      if (omx_err != OMX_ErrorNone) {
+        LOGE("Rtmpsrc Init failed Error=%x", omx_err);
+        return omx_err;
       }
     } else if ((message->messageParam == OMX_StateIdle) && (oldState == OMX_StateExecuting)) {
-      omxErr = omx_rtmpsrc_component_Deinit(openmaxStandComp);
-      if (omxErr != OMX_ErrorNone) {
-        LOGE("Rtmpsrc Deinit failed Error=%x", omxErr);
-        return omxErr;
+      omx_err = omx_rtmpsrc_component_Deinit(omx_comp);
+      if (omx_err != OMX_ErrorNone) {
+        LOGE("Rtmpsrc Deinit failed Error=%x", omx_err);
+        return omx_err;
       }
     }
   }
 
-  return omxErr;
+  return omx_err;
 }
 
-OMX_ERRORTYPE omx_rtmpsrc_component_Init(OMX_COMPONENTTYPE *openmaxStandComp)
+OMX_ERRORTYPE omx_rtmpsrc_component_Init(OMX_COMPONENTTYPE *omx_comp)
 {
-  omx_rtmpsrc_component_PrivateType *compPriv = (omx_rtmpsrc_component_PrivateType *) openmaxStandComp->pComponentPrivate;
+  omx_rtmpsrc_component_PrivateType *comp_priv = (omx_rtmpsrc_component_PrivateType *) omx_comp->pComponentPrivate;
 
-  compPriv->pRTMP = RTMP_Alloc();
-  if (!compPriv->pRTMP) {
-    LOGE("RTMP_Alloc failed for url \"%s\"", compPriv->sInputUrl);
+  comp_priv->rtmp = RTMP_Alloc();
+  if (!comp_priv->rtmp) {
+    LOGE("RTMP_Alloc failed for url \"%s\"", comp_priv->input_url);
     return OMX_ErrorInsufficientResources;
   }
 
-  RTMP_Init(compPriv->pRTMP);
-  compPriv->pRTMP->Link.timeout = RTMP_SOCK_TIMEOUT;
+  RTMP_Init(comp_priv->rtmp);
+  comp_priv->rtmp->Link.timeout = RTMP_SOCK_TIMEOUT;
 
   RTMP_LogSetLevel(RTMP_LOGLEVEL);
   RTMP_LogSetCallback(rtmp_log);
@@ -310,10 +477,10 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Init(OMX_COMPONENTTYPE *openmaxStandComp)
   AVal sockhost = { 0, 0 }, tcurl = { buf, 0 };
   int ret = TRUE;
 
-  if (!(ret = RTMP_ParseURL(compPriv->sInputUrl, &parsed_protocol,
+  if (!(ret = RTMP_ParseURL(comp_priv->input_url, &parsed_protocol,
                             &parsed_host, &parsed_port,
                             &parsed_playpath, &parsed_app))) {
-    LOGE("RTMP_ParseURL failed for url \"%s\"", compPriv->sInputUrl);
+    LOGE("RTMP_ParseURL failed for url \"%s\"", comp_priv->input_url);
     goto out;
   }
 
@@ -323,41 +490,47 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Init(OMX_COMPONENTTYPE *openmaxStandComp)
                           parsed_port,
                           parsed_app.av_len, parsed_app.av_val);
 
-  RTMP_SetupStream(compPriv->pRTMP, parsed_protocol, &parsed_host, parsed_port,
+  RTMP_SetupStream(comp_priv->rtmp, parsed_protocol, &parsed_host, parsed_port,
                    &sockhost, &parsed_playpath, &tcurl, NULL, NULL,
                    &parsed_app, NULL, NULL, 0,
                    NULL, NULL, NULL, 0, 0, TRUE, RTMP_SOCK_TIMEOUT);
 
-  RTMP_SetBufferMS(compPriv->pRTMP, RTMP_BUFFER_TIME);
+  RTMP_SetBufferMS(comp_priv->rtmp, RTMP_BUFFER_TIME);
 
-  if (!(ret = RTMP_Connect(compPriv->pRTMP, NULL))) {
-    LOGE("RTMP_Connect failed for url \"%s\"", compPriv->sInputUrl);
+  if (!(ret = RTMP_Connect(comp_priv->rtmp, NULL))) {
+    LOGE("RTMP_Connect failed for url \"%s\"", comp_priv->input_url);
     goto out;
   }
 
-  if (!(ret = RTMP_ConnectStream(compPriv->pRTMP, 0))) {
-    LOGE("RTMP_ConnectStream failed for url \"%s\"", compPriv->sInputUrl);
+  if (!(ret = RTMP_ConnectStream(comp_priv->rtmp, 0))) {
+    LOGE("RTMP_ConnectStream failed for url \"%s\"", comp_priv->input_url);
     goto out;
   }
 
-  LOGI("Rtmpsrc for url \"%s\" initialized", compPriv->sInputUrl);
+  comp_priv->rtmp_ready = OMX_TRUE;
+  tsem_up(comp_priv->rtmp_sync_sem);
+
+  LOGI("Rtmpsrc for url \"%s\" initialized", comp_priv->input_url);
 
 out:
   SAFE_FREE(parsed_playpath.av_val);
   return ret == TRUE ? OMX_ErrorNone : OMX_ErrorBadParameter;
 }
 
-OMX_ERRORTYPE omx_rtmpsrc_component_Deinit(OMX_COMPONENTTYPE *openmaxStandComp)
+OMX_ERRORTYPE omx_rtmpsrc_component_Deinit(OMX_COMPONENTTYPE *omx_comp)
 {
-  omx_rtmpsrc_component_PrivateType *compPriv = (omx_rtmpsrc_component_PrivateType *) openmaxStandComp->pComponentPrivate;
+  omx_rtmpsrc_component_PrivateType *comp_priv = (omx_rtmpsrc_component_PrivateType *) omx_comp->pComponentPrivate;
 
-  if (compPriv->pRTMP) {
-    if (RTMP_IsConnected(compPriv->pRTMP))
-      LOGI("Disconnect from url \"%s\"", compPriv->sInputUrl);
-    RTMP_Close(compPriv->pRTMP);
-    RTMP_Free(compPriv->pRTMP);
-    compPriv->pRTMP = NULL;
+  if (comp_priv->rtmp) {
+    if (RTMP_IsConnected(comp_priv->rtmp))
+      LOGI("Disconnect from url \"%s\"", comp_priv->input_url);
+    RTMP_Close(comp_priv->rtmp);
+    RTMP_Free(comp_priv->rtmp);
+    comp_priv->rtmp = NULL;
   }
+
+  comp_priv->rtmp_ready = OMX_FALSE;
+  tsem_reset(comp_priv->rtmp_sync_sem);
 
   return OMX_ErrorNone;
 }

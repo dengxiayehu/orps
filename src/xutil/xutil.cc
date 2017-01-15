@@ -193,15 +193,17 @@ std::string uuid()
 {
   char buff[128];
 
-  CHECK_EXPR_EXEC_RETVAL(!exec_get_str("uuidgen -t", buff, sizeof(buff)), LOGE("try to generate uuid failed"), sprintf_("%d", rand()));
-
+  CHECK_EXPR_EXEC_RETVAL(!exec_get_str("uuidgen -t", buff, sizeof(buff)),
+                         LOGE("try to generate uuid failed"),
+                         sprintf_("%d", rand()));
   return std::string(buff);
 }
 
 std::string to_upper_str(const char *str)
 {
-  CHECK_EXPR_EXEC_RETVAL(!str, LOGE("Null parm passed"), std::string("NULL"));
-
+  CHECK_EXPR_EXEC_RETVAL(!str,
+                         LOGE("Null parm passed"),
+                         std::string("NULL"));
   std::string s(str);
   for (std::string::size_type i = 0; i < s.size(); ++i)
     s[i] = toupper(s[i]);
@@ -210,8 +212,9 @@ std::string to_upper_str(const char *str)
 
 std::string to_lower_str(const char *str)
 {
-  CHECK_EXPR_EXEC_RETVAL(!str, LOGE("Null parm passed"), std::string("NULL"));
-
+  CHECK_EXPR_EXEC_RETVAL(!str,
+                         LOGE("Null parm passed"),
+                         std::string("NULL"));
   std::string s(str);
   for (std::string::size_type i = 0; i < s.size(); ++i)
     s[i] = tolower(s[i]);

@@ -62,6 +62,49 @@ Frame::~Frame()
   clear();
 }
 
+/////////////////////////////////////////////////////////////
+
+AVCDecorderConfigurationRecord::AVCDecorderConfigurationRecord()
+{
+  memset(this, 0, sizeof(*this));
+}
+
+AVCDecorderConfigurationRecord::~AVCDecorderConfigurationRecord()
+{
+  SAFE_DELETE_ARRAY(sps);
+  SAFE_DELETE_ARRAY(pps);
+}
+
+int AVCDecorderConfigurationRecord::parse_from(const uint8_t *data, const uint32_t size)
+{
+  const int fixed_bytes = 11;
+  if (size < fixed_bytes) goto bail;
+  version = *data++;
+  profile = *data++;
+  profile_compatibility = *data++;
+  level = *data++;
+  *(uint8_t *)(&level + 1) = *data++;
+  *(uint8_t *)(&level + 2) = *data++;
+  sps_length = ENTOHS(* (uint16_t *) data);
+  if (size < fixed_bytes + sps_length) goto bail;
+  data += sizeof(uint16_t);
+  sps = new uint8_t[sps_length];
+  memcpy(sps, data, sps_length);
+  data += sps_length;
+  num_of_pps = *data++;
+  pps_length = ENTOHS(* (uint16_t *) data);
+  if (size < fixed_bytes + sps_length + pps_length) goto bail;
+  data += sizeof(uint16_t);
+  pps = new uint8_t[pps_length];
+  memcpy(pps, data, pps_length);
+  data += pps_length;
+  return 0;
+
+bail:
+  LOGE("Not enough data(%d bytes) for AVCDecorderConfigurationRecord to parse", size);
+  return -1;
+}
+
 void print_avc_dcr(const AVCDecorderConfigurationRecord &avc_dcr)
 {
   printf("---AVCDecorderConfigurationRecord---\n");
@@ -85,13 +128,20 @@ void print_avc_dcr(const AVCDecorderConfigurationRecord &avc_dcr)
 
 /////////////////////////////////////////////////////////////
 
+int generate_asc(byte buff[],
+                 uint8_t profile, uint8_t sample_rate_idx, uint8_t channel)
+{
+  buff[0]  = (byte) (profile<<3);
+  buff[0] |= (byte) ((sample_rate_idx&0x0E)>>1);
+  buff[1]  = (byte) ((sample_rate_idx&0x01)<<7);
+  buff[1] |= (byte) (channel<<3);
+  return 0;
+}
+
 int generate_asc(AudioSpecificConfig &asc,
                  uint8_t profile, uint8_t sample_rate_idx, uint8_t channel)
 {
-  asc.dat[0] = profile<<3;
-  asc.dat[0] |= (sample_rate_idx&0x0E)>>1;
-  asc.dat[1] = (sample_rate_idx&0x01)<<7;
-  asc.dat[1] |= channel<<3;
+  generate_asc(asc.dat, profile, sample_rate_idx, channel);
   return 0;
 }
 

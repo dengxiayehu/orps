@@ -20,42 +20,45 @@ extern "C" {
 
 DERIVEDCLASS(omx_rtmpsrc_component_PrivateType, omx_base_source_PrivateType)
 #define omx_rtmpsrc_component_PrivateType_FIELDS omx_base_source_PrivateType_FIELDS \
-  OMX_BUFFERHEADERTYPE *pTmpOutputBuffer; \
-  OMX_STRING sInputUrl; \
-  RTMP *pRTMP; \
+  OMX_BUFFERHEADERTYPE *tmp_output_buffer; \
+  OMX_STRING input_url; \
+  RTMP *rtmp; \
   OMX_VIDEO_CODINGTYPE video_codec; \
-  OMX_AUDIO_CODINGTYPE audio_codec;
+  OMX_AUDIO_CODINGTYPE audio_codec; \
+  OMX_BOOL rtmp_ready; \
+  tsem_t *rtmp_sync_sem; \
+  OMX_BOOL first_timestamp_flag[2];
 ENDCLASS(omx_rtmpsrc_component_PrivateType)
 
-OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *openmaxStandComp, OMX_STRING cComponentName);
-OMX_ERRORTYPE omx_rtmpsrc_component_Destructor(OMX_COMPONENTTYPE *openmaxStandComp);
+OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX_STRING comp_name);
+OMX_ERRORTYPE omx_rtmpsrc_component_Destructor(OMX_COMPONENTTYPE *omx_comp);
 OMX_ERRORTYPE omx_rtmpsrc_component_MessageHandler(OMX_COMPONENTTYPE *, internalRequestMessageType *);
-OMX_ERRORTYPE omx_rtmpsrc_component_Init(OMX_COMPONENTTYPE *openmaxStandComp);
-OMX_ERRORTYPE omx_rtmpsrc_component_Deinit(OMX_COMPONENTTYPE *openmaxStandComp);
+OMX_ERRORTYPE omx_rtmpsrc_component_Init(OMX_COMPONENTTYPE *omx_comp);
+OMX_ERRORTYPE omx_rtmpsrc_component_Deinit(OMX_COMPONENTTYPE *omx_comp);
 
 void omx_rtmpsrc_component_BufferMgmtCallback(
-    OMX_COMPONENTTYPE *openmaxStandComp,
-    OMX_BUFFERHEADERTYPE *pOutputBuffer);
+    OMX_COMPONENTTYPE *omx_comp,
+    OMX_BUFFERHEADERTYPE *output_buffer);
 
 OMX_ERRORTYPE omx_rtmpsrc_component_SetParameter(
-    OMX_IN OMX_HANDLETYPE hComponent,
+    OMX_IN OMX_HANDLETYPE hcomp,
     OMX_IN OMX_INDEXTYPE nParamIndex,
-    OMX_IN OMX_PTR ComponentParameterStructure);
+    OMX_IN OMX_PTR comp_parm);
 
 OMX_ERRORTYPE omx_rtmpsrc_component_GetParameter(
-    OMX_IN OMX_HANDLETYPE hComponent,
+    OMX_IN OMX_HANDLETYPE hcomp,
     OMX_IN OMX_INDEXTYPE nParamIndex,
-    OMX_INOUT OMX_PTR ComponentParameterStructure);
+    OMX_INOUT OMX_PTR comp_parm);
 
 OMX_ERRORTYPE omx_rtmpsrc_component_GetConfig(
-    OMX_IN OMX_HANDLETYPE hComponent,
-    OMX_IN OMX_INDEXTYPE nIndex,
-    OMX_IN OMX_PTR pComponentConfigStructure);
+    OMX_IN OMX_HANDLETYPE hcomp,
+    OMX_IN OMX_INDEXTYPE index,
+    OMX_IN OMX_PTR comp_param);
 
 OMX_ERRORTYPE omx_rtmpsrc_component_GetExtensionIndex(
-    OMX_IN OMX_HANDLETYPE hComponent,
+    OMX_IN OMX_HANDLETYPE hcomp,
     OMX_IN OMX_STRING cParameterName,
-    OMX_OUT OMX_INDEXTYPE *pIndexType);
+    OMX_OUT OMX_INDEXTYPE *index);
 
 #ifdef __cplusplus
 }
