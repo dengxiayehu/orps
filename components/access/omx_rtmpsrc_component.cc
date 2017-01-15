@@ -5,6 +5,7 @@
 
 #include <orps_config.h>
 #include <get_bits.h>
+#include <xamf.h>
 #include <xmedia.h>
 #include <xutil.h>
 #include <xlog.h>
@@ -53,8 +54,8 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX
        comp_priv->sPortTypesParam[OMX_PortDomainOther].nPorts) &&
       !comp_priv->ports) {
     comp_priv->ports = (omx_base_PortType**) calloc(comp_priv->sPortTypesParam[OMX_PortDomainVideo].nPorts +
-                                                   comp_priv->sPortTypesParam[OMX_PortDomainAudio].nPorts +
-                                                   comp_priv->sPortTypesParam[OMX_PortDomainOther].nPorts, sizeof(omx_base_PortType**));
+                                                    comp_priv->sPortTypesParam[OMX_PortDomainAudio].nPorts +
+                                                    comp_priv->sPortTypesParam[OMX_PortDomainOther].nPorts, sizeof(omx_base_PortType**));
     if (!comp_priv->ports) {
       return OMX_ErrorInsufficientResources;
     }
@@ -283,7 +284,17 @@ again:
             BAIL_RETURN;
           }
         } else if (packet.m_packetType == RTMP_PACKET_TYPE_INFO) {
-          // Fall through
+          xamf::AMFData script;
+          const byte *p = (const byte *) packet.m_body;
+          INIT_LIST_HEAD(&script);
+          while (packet.m_nBodySize - (p - (const byte *) packet.m_body) > 0) {
+            if (xamf::parse_amf(p, packet.m_nBodySize - (p - (const byte *) packet.m_body), &script) < 0) {
+              LOGE("parse_amf failed");
+              BAIL_RETURN;
+            }
+          }
+          xamf::print_amf_list("", &script);
+          xamf::free_amf_list(&script);
         }
 
         RTMPPacket_Free(&packet);
@@ -313,7 +324,7 @@ again:
 
 OMX_ERRORTYPE omx_rtmpsrc_component_SetParameter(
     OMX_IN OMX_HANDLETYPE hcomp,
-    OMX_IN OMX_INDEXTYPE nParamIndex,
+    OMX_IN OMX_INDEXTYPE parm_index,
     OMX_IN OMX_PTR comp_parm)
 {
   OMX_ERRORTYPE omx_err = OMX_ErrorNone;
@@ -322,13 +333,13 @@ OMX_ERRORTYPE omx_rtmpsrc_component_SetParameter(
   OMX_COMPONENTTYPE *omx_comp = (OMX_COMPONENTTYPE *) hcomp;
   omx_rtmpsrc_component_PrivateType *comp_priv = (omx_rtmpsrc_component_PrivateType *) omx_comp->pComponentPrivate;
 
-  LOGI("Setting parameter %i", nParamIndex);
+  LOGI("Setting parameter %i", parm_index);
 
   if (comp_parm == NULL) {
     return OMX_ErrorBadParameter;
   }
 
-  switch ((long) nParamIndex) {
+  switch ((long) parm_index) {
   case OMX_IndexVendorInputUrl:
     url_length = strlen(((char *) comp_parm)) + 1;
     if (url_length > DEFAULT_URL_LENGTH) {
@@ -338,14 +349,14 @@ OMX_ERRORTYPE omx_rtmpsrc_component_SetParameter(
     strcpy(comp_priv->input_url, (char *) comp_parm);
     break;
   default:
-    return omx_base_component_SetParameter(hcomp, nParamIndex, comp_parm);
+    return omx_base_component_SetParameter(hcomp, parm_index, comp_parm);
   }
   return omx_err;
 }
 
 OMX_ERRORTYPE omx_rtmpsrc_component_GetParameter(
     OMX_IN OMX_HANDLETYPE hcomp,
-    OMX_IN OMX_INDEXTYPE nParamIndex,
+    OMX_IN OMX_INDEXTYPE parm_index,
     OMX_INOUT OMX_PTR comp_parm)
 {
   OMX_ERRORTYPE omx_err = OMX_ErrorNone;
@@ -358,13 +369,13 @@ OMX_ERRORTYPE omx_rtmpsrc_component_GetParameter(
   omx_base_video_PortType *video_port = (omx_base_video_PortType *) comp_priv->ports[OMX_BASE_SOURCE_OUTPUTPORT_INDEX];
   omx_base_audio_PortType *audio_port = (omx_base_audio_PortType *) comp_priv->ports[OMX_BASE_SOURCE_OUTPUTPORT_INDEX_1];
 
-  LOGI("Getting parameter %i", nParamIndex);
+  LOGI("Getting parameter %i", parm_index);
 
   if (comp_parm == NULL) {
     return OMX_ErrorBadParameter;
   }
 
-  switch ((long) nParamIndex) {
+  switch ((long) parm_index) {
   case OMX_IndexParamVideoInit:
     video_port_parm = (OMX_PORT_PARAM_TYPE *) comp_parm;
     if ((omx_err = checkHeader(comp_parm, sizeof(OMX_PORT_PARAM_TYPE))) != OMX_ErrorNone) {
@@ -407,19 +418,19 @@ OMX_ERRORTYPE omx_rtmpsrc_component_GetParameter(
     strcpy((char *) comp_parm, comp_priv->input_url);
     break;
   default:
-      return omx_base_component_GetParameter(hcomp, nParamIndex, comp_parm);
+      return omx_base_component_GetParameter(hcomp, parm_index, comp_parm);
   }
   return omx_err;
 }
 
 OMX_ERRORTYPE omx_rtmpsrc_component_GetExtensionIndex(
     OMX_IN OMX_HANDLETYPE hcomp,
-    OMX_IN OMX_STRING cParameterName,
+    OMX_IN OMX_STRING parm_name,
     OMX_OUT OMX_INDEXTYPE *index)
 {
-  LOGI("Get extension index %s", cParameterName);
+  LOGI("Get extension index %s", parm_name);
 
-  if (!strcmp(cParameterName, "OMX.ST.index.param.inputurl")) {
+  if (!strcmp(parm_name, "OMX.ST.index.param.inputurl")) {
     *index = (OMX_INDEXTYPE) OMX_IndexVendorInputUrl;
   } else {
     return OMX_ErrorBadParameter;
