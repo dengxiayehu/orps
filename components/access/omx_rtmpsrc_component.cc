@@ -64,7 +64,7 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX
     if (!comp_priv->ports[VIDEO_PORT_INDEX]) {
       return OMX_ErrorInsufficientResources;
     }
-    comp_priv->ports[AUDIO_PORT_INDEX] = (omx_base_PortType *) calloc(1, sizeof(omx_base_video_PortType));
+    comp_priv->ports[AUDIO_PORT_INDEX] = (omx_base_PortType *) calloc(1, sizeof(omx_base_audio_PortType));
     if (!comp_priv->ports[AUDIO_PORT_INDEX]) {
       return OMX_ErrorInsufficientResources;
     }
@@ -183,6 +183,8 @@ again:
         !RTMP_ReadPacket(comp_priv->rtmp, &packet)) {
       output_buffer->nFlags = OMX_BUFFERFLAG_EOS;
     } else {
+      OMX_BUFFERHEADERTYPE *dst_buffer = NULL;
+
       if (RTMPPacket_IsReady(&packet)) {
         if (!packet.m_nBodySize) {
           goto again;
@@ -190,8 +192,6 @@ again:
 
         xutil::GetBitContext bits;
         init_get_bits(&bits, (const OMX_U8 *) packet.m_body, packet.m_nBodySize*8);
-
-        OMX_BUFFERHEADERTYPE *dst_buffer;
 
         if (packet.m_packetType == RTMP_PACKET_TYPE_VIDEO) {
           get_bits(&bits, 4); // skip frame_type
@@ -298,7 +298,9 @@ again:
         }
 
         RTMPPacket_Free(&packet);
-      } else {
+      }
+
+      if (!dst_buffer) {
         goto again;
       }
     }
@@ -518,10 +520,10 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Init(OMX_COMPONENTTYPE *omx_comp)
     goto out;
   }
 
+  LOGI("Rtmpsrc for url \"%s\" initialized", comp_priv->input_url);
+
   comp_priv->rtmp_ready = OMX_TRUE;
   tsem_up(comp_priv->rtmp_sync_sem);
-
-  LOGI("Rtmpsrc for url \"%s\" initialized", comp_priv->input_url);
 
 out:
   SAFE_FREE(parsed_playpath.av_val);
