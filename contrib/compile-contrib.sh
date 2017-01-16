@@ -49,7 +49,6 @@ function compile_libomxil_bellagio() {
   export PKG_CONFIG_PATH=$CONTRIB_LINUX_INSTALL_DIR/lib/pkgconfig/:/usr/local/lib/pkgconfig/:/usr/lib/pkgconfig/:$PKG_CONFIG_PATH
   autoreconf -i -f . &&
     ./configure --enable-debug --prefix="$CONTRIB_LINUX_INSTALL_DIR" &&
-    #make CFLAGS="-g -O0 -Wno-error=switch -DCONFIG_DEBUG_LEVEL=255" &&
     make CFLAGS="-g -O0 -Wno-error=switch" &&
     make install &&
     make check && return 0

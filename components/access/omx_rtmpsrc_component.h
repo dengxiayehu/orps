@@ -27,7 +27,8 @@ DERIVEDCLASS(omx_rtmpsrc_component_PrivateType, omx_base_source_PrivateType)
   OMX_AUDIO_CODINGTYPE audio_codec; \
   OMX_BOOL rtmp_ready; \
   tsem_t *rtmp_sync_sem; \
-  OMX_BOOL first_timestamp_flag[2];
+  OMX_BOOL first_timestamp_flag[2]; \
+  OMX_S32 scale;
 ENDCLASS(omx_rtmpsrc_component_PrivateType)
 
 OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX_STRING comp_name);

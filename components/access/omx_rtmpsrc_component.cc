@@ -1,6 +1,7 @@
 #include <omxcore.h>
 #include <omx_base_video_port.h>
 #include <omx_base_audio_port.h>
+#include <omx_base_clock_port.h>
 #include <omx_rtmpsrc_component.h>
 
 #include <orps_config.h>
@@ -12,6 +13,7 @@
 
 #define VIDEO_PORT_INDEX 0
 #define AUDIO_PORT_INDEX 1
+#define CLOCK_PORT_INDEX 2
 
 #define DEFAULT_URL_LENGTH  2048
 
@@ -49,6 +51,9 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX
   comp_priv->sPortTypesParam[OMX_PortDomainAudio].nStartPortNumber = AUDIO_PORT_INDEX;
   comp_priv->sPortTypesParam[OMX_PortDomainAudio].nPorts = 1;
 
+  comp_priv->sPortTypesParam[OMX_PortDomainOther].nStartPortNumber = CLOCK_PORT_INDEX;
+  comp_priv->sPortTypesParam[OMX_PortDomainOther].nPorts = 1;
+
   if ((comp_priv->sPortTypesParam[OMX_PortDomainVideo].nPorts +
        comp_priv->sPortTypesParam[OMX_PortDomainAudio].nPorts +
        comp_priv->sPortTypesParam[OMX_PortDomainOther].nPorts) &&
@@ -68,10 +73,16 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX
     if (!comp_priv->ports[AUDIO_PORT_INDEX]) {
       return OMX_ErrorInsufficientResources;
     }
+    comp_priv->ports[CLOCK_PORT_INDEX] = (omx_base_PortType *) calloc(1, sizeof(omx_base_clock_PortType));
+    if (!comp_priv->ports[AUDIO_PORT_INDEX]) {
+      return OMX_ErrorInsufficientResources;
+    }
   }
 
   base_video_port_Constructor(omx_comp, &comp_priv->ports[VIDEO_PORT_INDEX], VIDEO_PORT_INDEX, OMX_FALSE);
   base_audio_port_Constructor(omx_comp, &comp_priv->ports[AUDIO_PORT_INDEX], AUDIO_PORT_INDEX, OMX_FALSE);
+  base_clock_port_Constructor(omx_comp, &comp_priv->ports[CLOCK_PORT_INDEX], CLOCK_PORT_INDEX, OMX_TRUE);
+  comp_priv->ports[CLOCK_PORT_INDEX]->sPortParam.bEnabled = OMX_FALSE;
 
   port_v = (omx_base_video_PortType *) comp_priv->ports[VIDEO_PORT_INDEX];
   port_a = (omx_base_audio_PortType *) comp_priv->ports[AUDIO_PORT_INDEX];
@@ -169,6 +180,15 @@ void omx_rtmpsrc_component_BufferMgmtCallback(OMX_COMPONENTTYPE *omx_comp, OMX_B
 
   output_buffer->nFilledLen = 0;
   output_buffer->nOffset = 0;
+
+  omx_base_clock_PortType *clock_port = (omx_base_clock_PortType *) comp_priv->ports[CLOCK_PORT_INDEX];
+  if (clock_port->pBufferSem->semval > 0) {
+    tsem_down(clock_port->pBufferSem);
+    OMX_BUFFERHEADERTYPE *clock_buffer = (OMX_BUFFERHEADERTYPE *) dequeue(clock_port->pBufferQueue);
+    OMX_TIME_MEDIATIMETYPE *media_time = (OMX_TIME_MEDIATIMETYPE *) clock_buffer->pBuffer;
+    comp_priv->scale = media_time->xScale;
+    clock_port->ReturnBufferFunction((omx_base_PortType *) clock_port, clock_buffer);
+  }
 
 #define BAIL_RETURN do { \
   RTMPPacket_Free(&packet); \

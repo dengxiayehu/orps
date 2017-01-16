@@ -202,21 +202,23 @@ OMX_ERRORTYPE rtmpsrcFillBufferDone(
 
   if (pBuffer != NULL) {
     if (!appPriv->bEOS) {
-      if (pBuffer->nFilledLen == 0) {
-        LOGE("Ouch! No data in the output buffer");
-        return OMX_ErrorNone;
-      }
-      pBuffer->nFilledLen = 0;
       if (pBuffer->nFlags == OMX_BUFFERFLAG_EOS) {
         appPriv->bEOS = OMX_TRUE;
       } else {
+        if (pBuffer->nFilledLen == 0) {
+          LOGE("Ouch! No data in the output buffer");
+          return OMX_ErrorNone;
+        }
+
+        pBuffer->nFilledLen = 0;
+        pBuffer->nFlags = 0;
+
         omxErr = OMX_FillThisBuffer(hComponent, pBuffer);
         if (omxErr != OMX_ErrorNone) {
           LOGE("OMX_FillThisBuffer failed");
           return omxErr;
         }
       }
-      pBuffer->nFlags = 0;
     } else {
       LOGI("eos=%x dropping this buffer", pBuffer->nFlags);
     }
