@@ -50,9 +50,9 @@ function compile_libomxil_bellagio() {
   local _cflags="-g -O0 -Wno-error=switch"
   autoreconf -i -f . &&
     ./configure --enable-debug --prefix="$CONTRIB_LINUX_INSTALL_DIR" &&
-    make CFLAGS="$_cflags" &&
-    make CFLAGS="$_cflags" check &&
-    make CFLAGS="$_cflags" install && return 0
+    make $MKFLAGS CFLAGS="$_cflags" &&
+    make $MKFLAGS CFLAGS="$_cflags" check &&
+    make $MKFLAGS CFLAGS="$_cflags" install && return 0
   return 1
 }
 

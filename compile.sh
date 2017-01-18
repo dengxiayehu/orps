@@ -14,7 +14,6 @@ CONTRIB_DIR="$ABS_DIR"/contrib
 bash "$CONTRIB_DIR"/compile-contrib.sh
 
 BUILD_DIR="$ABS_DIR"/build
-
 [ ! -d "$BUILD_DIR" ] && mkdir "$BUILD_DIR"
 cd "$BUILD_DIR" && cmake .. && make $MKFLAGS
 
