@@ -173,11 +173,16 @@ int main(int argc, const char *argv[])
   omx_err = OMX_FillThisBuffer(app_priv->rtmpsrchandle, app_priv->outBufferRtmpsrcAudio[0]);
   omx_err = OMX_FillThisBuffer(app_priv->rtmpsrchandle, app_priv->outBufferRtmpsrcAudio[1]);
 
+  LOGI("Rtmpsrc test running ..");
   thread->Run();
 
   thread->set_socketserver(NULL);
 
   omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
+  if (omx_err != OMX_ErrorNone) {
+    LOGE("Rtmpsrc set to idle failed");
+    exit(1);
+  }
   tsem_down(app_priv->rtmpsrcEventSem);
   LOGI("Rtmpsrc in idle state");
 
@@ -268,13 +273,15 @@ OMX_ERRORTYPE rtmpsrcEventHandler(
       LOGI("Received flush event");
       tsem_up(app_priv->rtmpsrcEventSem);
     } else {
-      LOGI("Received event event=%d data1=%d data2=%d", eEvent, (int) Data1, (int) Data2);
+      LOGI("Received event event=%d data1=%u data2=%u", eEvent, Data1, Data2);
     }
   } else if (eEvent == OMX_EventPortSettingsChanged) {
   } else if (eEvent == OMX_EventPortFormatDetected) {
     LOGI("Port format detected %x", (int) Data1);
+  } else if (eEvent == OMX_EventError) {
+    LOGE("Received error event, data1=%x, data2=%d", Data1, Data2);
   } else {
-    LOGI("eEvent=%x, data1=%d, data2=%d", eEvent, Data1, Data2);
+    LOGI("eEvent=%x, data1=%u, data2=%u", eEvent, Data1, Data2);
   }
   return OMX_ErrorNone;
 }

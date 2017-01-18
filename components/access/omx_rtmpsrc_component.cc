@@ -480,6 +480,7 @@ OMX_ERRORTYPE omx_rtmpsrc_component_MessageHandler(OMX_COMPONENTTYPE *omx_comp, 
       omx_err = omx_rtmpsrc_component_Init(omx_comp);
       if (omx_err != OMX_ErrorNone) {
         LOGE("Rtmpsrc Init failed Error=%x", omx_err);
+        (*(comp_priv->callbacks->EventHandler))(omx_comp, comp_priv->callbackData, OMX_EventError, omx_err, 0, NULL);
         return omx_err;
       }
     } else if ((message->messageParam == OMX_StateIdle) && (oldState == OMX_StateExecuting)) {
