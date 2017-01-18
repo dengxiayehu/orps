@@ -4,7 +4,7 @@
 #include <curl/curl.h>
 #include <vector>
 
-#include "xmacros.h"
+#include "xmacro.h"
 
 namespace xcurl {
 

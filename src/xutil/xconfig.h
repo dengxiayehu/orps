@@ -2,7 +2,7 @@
 #define _XCONFIG_H_
 
 #include "xlog.h"
-#include "xmacros.h"
+#include "xmacro.h"
 
 namespace xconfig {
 

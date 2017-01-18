@@ -23,7 +23,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 
-#include "xmacros.h"
+#include "xmacro.h"
 
 namespace xutil {
 

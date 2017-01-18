@@ -27,7 +27,7 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX
   omx_base_video_PortType *port_v;
   omx_base_audio_PortType *port_a;
 
-  RM_RegisterComponent((char *) RTMPSRC_COMP_NAME, MAX_RTMPSRC_COMPONENTS);
+  RM_RegisterComponent((OMX_STRING) RTMPSRC_COMP_NAME, MAX_RTMPSRC_COMPONENTS);
 
   if (!omx_comp->pComponentPrivate) {
     omx_comp->pComponentPrivate = (omx_rtmpsrc_component_PrivateType *) calloc(1, sizeof(omx_rtmpsrc_component_PrivateType));

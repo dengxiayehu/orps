@@ -1,5 +1,5 @@
-#ifndef _XMACROS_H_
-#define _XMACROS_H_
+#ifndef _XMACRO_H_
+#define _XMACRO_H_
 
 #ifndef SAFE_DELETE
 #define SAFE_DELETE(p) do {   \
@@ -176,4 +176,4 @@
 #define MAKE_TAG2(a,b) MAKE_TAG3(a,b,0)
 #define MAKE_TAG1(a) MAKE_TAG2(a,0)
 
-#endif /* end of _XMACROS_H_ */
+#endif /* end of _XMACRO_H_ */
