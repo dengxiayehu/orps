@@ -4,11 +4,10 @@
 #include <omx_base_clock_port.h>
 #include <omx_rtmpsrc_component.h>
 
+#include <webrtc/base/bitbuffer.h>
 #include <orps_config.h>
-#include <get_bits.h>
 #include <xamf.h>
 #include <xmedia.h>
-#include <xutil.h>
 #include <xlog.h>
 
 #define VIDEO_PORT_INDEX 0
@@ -144,6 +143,7 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Destructor(OMX_COMPONENTTYPE *omx_comp)
 
   SAFE_FREE(comp_priv->input_url);
 
+  SAFE_FREE(comp_priv->tmp_output_buffer->pBuffer);
   SAFE_FREE(comp_priv->tmp_output_buffer);
 
   if (comp_priv->ports) {
@@ -210,22 +210,24 @@ again:
           goto again;
         }
 
-        xutil::GetBitContext bits;
-        init_get_bits(&bits, (const OMX_U8 *) packet.m_body, packet.m_nBodySize*8);
+        rtc::BitBuffer bitbuffer((const OMX_U8 *) packet.m_body, packet.m_nBodySize);
+        size_t byte_offset, bit_offset;
 
         if (packet.m_packetType == RTMP_PACKET_TYPE_VIDEO) {
-          get_bits(&bits, 4); // skip frame_type
-          OMX_U8 codec_id = get_bits(&bits, 4);
+          bitbuffer.ConsumeBits(4); // skip frame_type
+          uint32_t codec_id;
+          bitbuffer.ReadBits(&codec_id, 4);
           if (codec_id != 7) {
             LOGE("Video codec(%d) not supported for url \"%s\"", codec_id, comp_priv->input_url);
             BAIL_RETURN;
           }
 
-          OMX_U8 avc_pkt_type = get_bits(&bits, 8);
-          get_bits(&bits, 24); // skip composition_time
-          OMX_U32 data_offset = (4 + 4 + 8 + 24)/8;
-          const OMX_U8 *data = (const OMX_U8 *) packet.m_body + data_offset;
-          OMX_U32 data_size = packet.m_nBodySize - data_offset;
+          OMX_U8 avc_pkt_type;
+          bitbuffer.ReadUInt8(&avc_pkt_type);
+          bitbuffer.ConsumeBits(24); // skip composition_time
+          bitbuffer.GetCurrentOffset(&byte_offset, &bit_offset);
+          const OMX_U8 *data = (const OMX_U8 *) packet.m_body + byte_offset;
+          OMX_U32 data_size = packet.m_nBodySize - byte_offset;
 
           if (output_buffer->nOutputPortIndex == VIDEO_PORT_INDEX) {
             dst_buffer = output_buffer;
@@ -258,10 +260,14 @@ again:
             BAIL_RETURN;
           }
         } else if (packet.m_packetType == RTMP_PACKET_TYPE_AUDIO) {
-          OMX_U8 sound_format = get_bits(&bits, 4);
-          OMX_U8 sound_rate = get_bits(&bits, 2);
-          OMX_U8 sound_size = get_bits(&bits, 1);
-          OMX_U8 sound_type = get_bits(&bits, 1);
+          uint32_t sound_format;
+          bitbuffer.ReadBits(&sound_format, 4);
+          uint32_t sound_rate;
+          bitbuffer.ReadBits(&sound_rate, 2);
+          uint32_t sound_size;
+          bitbuffer.ReadBits(&sound_size, 1);
+          uint32_t sound_type;
+          bitbuffer.ReadBits(&sound_type, 1);
 
           if (sound_format != 10 || sound_rate != 3 || sound_size != 1 || sound_type != 1) {
             LOGE("Unsupported audio paket(sound_format=%d sound_rate=%d sound_size=%d sound_type=%d) for url \"%s\"",
@@ -269,10 +275,11 @@ again:
             BAIL_RETURN;
           }
 
-          OMX_U8 aac_packet_type = get_bits(&bits, 8);
-          OMX_U32 data_offset = (4 + 2 + 1 + 1 + 8)/8;
-          const OMX_U8 *data = (const OMX_U8 *) packet.m_body + data_offset;
-          OMX_U32 data_size = packet.m_nBodySize - data_offset;
+          uint8_t aac_packet_type;
+          bitbuffer.ReadUInt8(&aac_packet_type);
+          bitbuffer.GetCurrentOffset(&byte_offset, &bit_offset);
+          const OMX_U8 *data = (const OMX_U8 *) packet.m_body + byte_offset;
+          OMX_U32 data_size = packet.m_nBodySize - byte_offset;
 
           if (output_buffer->nOutputPortIndex == AUDIO_PORT_INDEX) {
             dst_buffer = output_buffer;

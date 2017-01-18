@@ -30,7 +30,6 @@ extern "C" {
 
 typedef struct appPrivateType {
   tsem_t *rtmpsrcEventSem;
-  tsem_t *eofSem;
   OMX_HANDLETYPE rtmpsrchandle;
   OMX_BUFFERHEADERTYPE *outBufferRtmpsrcVideo[2], *outBufferRtmpsrcAudio[2];
   OMX_BOOL bEOS;

@@ -2,13 +2,13 @@
 #define _XMACROS_H_
 
 #ifndef SAFE_DELETE
-#  define SAFE_DELETE(p) do {   \
+#define SAFE_DELETE(p) do {   \
   delete p;                     \
   p = NULL;                     \
 } while (0)
 #endif
 #ifndef SAFE_DELETE_ARRAY
-#  define SAFE_DELETE_ARRAY(p) do { \
+#define SAFE_DELETE_ARRAY(p) do { \
   delete [] p;                      \
   p = NULL;                         \
 } while (0)
@@ -16,14 +16,14 @@
 #endif
 
 #ifndef SAFE_FREE
-#  define SAFE_FREE(p) do {       \
+#define SAFE_FREE(p) do {       \
   free(p);                        \
   p = NULL;                       \
 } while (0)
 #endif
 
 #ifndef SAFE_CLOSE
-#  define SAFE_CLOSE(fd)    do {  \
+#define SAFE_CLOSE(fd)    do {  \
   if (fd >= 0) {                  \
     ::close(fd);                  \
     fd = -1;                      \
@@ -45,9 +45,11 @@
   if (expr) { cmd; goto label; }                    \
 } while (0)
 
+#ifndef DISALLOW_COPY_AND_ASSIGN
 #define DISALLOW_COPY_AND_ASSIGN(TypeName)  \
   TypeName(const TypeName &);               \
-void operator=(const TypeName &)
+  void operator=(const TypeName &)
+#endif
 
 #include <sys/syscall.h>  
 #define gettid() syscall(__NR_gettid)

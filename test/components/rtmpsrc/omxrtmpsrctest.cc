@@ -1,6 +1,74 @@
 #include <xlog.h>
+#include <xmacros.h>
+#include <webrtc/base/thread.h>
+#include <webrtc/base/physicalsocketserver.h>
+#include <signal.h>
+#include <pthread.h>
 
 #include "omxrtmpsrctest.h"
+
+class CustomSocketServer : public rtc::PhysicalSocketServer {
+public:
+  CustomSocketServer(rtc::Thread *thread, appPrivateType *app_priv)
+    : thread_(thread), app_priv_(app_priv) { }
+  virtual ~CustomSocketServer() { }
+
+  virtual bool Wait(int cms, bool process_io) override {
+    if (app_priv_->bEOS) {
+      thread_->Quit();
+    }
+    return rtc::PhysicalSocketServer::Wait(10, process_io);
+  }
+
+protected:
+  rtc::Thread *thread_;
+  appPrivateType *app_priv_;
+};
+
+class SignalProcessThread : public rtc::Thread {
+public:
+  SignalProcessThread(sigset_t *set, Thread *main_thread, appPrivateType *app_priv)
+    : set_(set), main_thread_(main_thread), app_priv_(app_priv) { }
+  virtual ~SignalProcessThread() { }
+  virtual void Run();
+
+private:
+  sigset_t *set_;
+  Thread *main_thread_;
+  appPrivateType *app_priv_;
+};
+
+class FunctorQuit {
+public:
+  explicit FunctorQuit(appPrivateType *app_priv)
+    : app_priv_(app_priv) { }
+  void operator()() {
+    app_priv_->bEOS = OMX_TRUE;
+  }
+
+private:
+  appPrivateType *app_priv_;
+};
+
+void SignalProcessThread::Run()
+{
+  int ret, sig;
+
+  for ( ; ; ) {
+    ret = sigwait(set_, &sig);
+    if (ret != 0) {
+      LOGE("sigwait failed: %s", ERRNOMSG);
+      break;
+    }
+
+    if (sig == SIGINT) {
+      LOGI("Program received signal %d", sig);
+      FunctorQuit f(app_priv_);
+      main_thread_->Invoke<void>(f);
+      break;
+    }
+  }
+}
 
 static OMX_ERRORTYPE test_OMX_ComponentNameEnum(void);
 static OMX_CALLBACKTYPE rtmpsrccallbacks = {
@@ -11,22 +79,42 @@ static OMX_CALLBACKTYPE rtmpsrccallbacks = {
 
 int main(int argc, const char *argv[])
 {
-  appPrivateType *appPriv;
-  OMX_ERRORTYPE omxErr;
-  OMX_INDEXTYPE eIndexParamUrl;
+  appPrivateType *app_priv;
+  OMX_ERRORTYPE omx_err;
+  OMX_INDEXTYPE index_parm_url;
 
   xlog::log_add_dst("./omxrtmpsrctest.log");
 
-  appPriv = (appPrivateType *) malloc(sizeof(appPrivateType));
-  appPriv->rtmpsrcEventSem = (tsem_t *) malloc(sizeof(tsem_t));
-  appPriv->eofSem = (tsem_t *) malloc(sizeof(tsem_t));
-  appPriv->bEOS = OMX_FALSE;
+  int ret = 0;
+  sigset_t set;
 
-  tsem_init(appPriv->rtmpsrcEventSem, 0);
-  tsem_init(appPriv->eofSem, 0);
+  // Block SIGINT in main thread and its inheritors.
+  sigemptyset(&set);
+  sigaddset(&set, SIGINT);
 
-  omxErr = OMX_Init();
-  if (omxErr != OMX_ErrorNone) {
+  ret = pthread_sigmask(SIG_BLOCK, &set, NULL);
+  if (ret != 0) {
+    fprintf(stderr, "pthread_sigmask failed: %s\n", strerror(ret));
+    return -1;
+  }
+
+  app_priv = (appPrivateType *) malloc(sizeof(appPrivateType));
+  app_priv->rtmpsrcEventSem = (tsem_t *) malloc(sizeof(tsem_t));
+  app_priv->bEOS = OMX_FALSE;
+
+  tsem_init(app_priv->rtmpsrcEventSem, 0);
+
+  rtc::AutoThread auto_thread;
+  rtc::Thread *thread = rtc::Thread::Current();
+  CustomSocketServer socket_server(thread, app_priv);
+  thread->set_socketserver(&socket_server);
+
+  // Create a thread to handle the signals.
+  SignalProcessThread spt(&set, thread, app_priv);
+  spt.Start();
+
+  omx_err = OMX_Init();
+  if (omx_err != OMX_ErrorNone) {
     LOGE("The OpenMAX core can not be initialized. Exiting...");
     exit(EXIT_FAILURE);
   }
@@ -36,81 +124,80 @@ int main(int argc, const char *argv[])
   test_OMX_ComponentNameEnum();
 
   LOGI("Using rtmpsrc");
-  omxErr = OMX_GetHandle(&appPriv->rtmpsrchandle, (OMX_STRING) "OMX.st.rtmpsrc", appPriv, &rtmpsrccallbacks);
-  if (omxErr != OMX_ErrorNone) {
+  omx_err = OMX_GetHandle(&app_priv->rtmpsrchandle, (OMX_STRING) "OMX.st.rtmpsrc", app_priv, &rtmpsrccallbacks);
+  if (omx_err != OMX_ErrorNone) {
     LOGE("Rtmpsrc component not found");
     exit(1);
   }
   LOGI("Rtmpsrc component found");
 
-  omxErr = OMX_GetExtensionIndex(appPriv->rtmpsrchandle, (OMX_STRING) "OMX.ST.index.param.inputurl",
-                                 &eIndexParamUrl);
-  if (omxErr != OMX_ErrorNone) {
+  omx_err = OMX_GetExtensionIndex(app_priv->rtmpsrchandle, (OMX_STRING) "OMX.ST.index.param.inputurl",
+                                  &index_parm_url);
+  if (omx_err != OMX_ErrorNone) {
     LOGE("Error in get extension index");
     exit(1);
   }
 
   char url[1024];
-  LOGI("Url param index: %x", eIndexParamUrl);
-  omxErr = OMX_SetParameter(appPriv->rtmpsrchandle, eIndexParamUrl, (OMX_PTR) "rtmp://127.0.0.1/live/va");
-  if (omxErr != OMX_ErrorNone) {
+  LOGI("Url param index: %x", index_parm_url);
+  omx_err = OMX_SetParameter(app_priv->rtmpsrchandle, index_parm_url, (OMX_PTR) "rtmp://127.0.0.1/live/va");
+  if (omx_err != OMX_ErrorNone) {
     LOGE("Error in input format");
     exit(1);
   }
-  OMX_GetParameter(appPriv->rtmpsrchandle, eIndexParamUrl, url);
+  OMX_GetParameter(app_priv->rtmpsrchandle, index_parm_url, url);
   LOGI("Test url set to: %s\"", url);
 
-  omxErr = OMX_SendCommand(appPriv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
-  if (omxErr != OMX_ErrorNone) {
+  omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
+  if (omx_err != OMX_ErrorNone) {
     LOGE("Rtmpsrc set to idle failed");
     exit(1);
   }
-  omxErr = OMX_AllocateBuffer(appPriv->rtmpsrchandle, &appPriv->outBufferRtmpsrcVideo[0], 0, appPriv, BUFFER_OUT_SIZE);
-  omxErr = OMX_AllocateBuffer(appPriv->rtmpsrchandle, &appPriv->outBufferRtmpsrcVideo[1], 0, appPriv, BUFFER_OUT_SIZE);
-  omxErr = OMX_AllocateBuffer(appPriv->rtmpsrchandle, &appPriv->outBufferRtmpsrcAudio[0], 1, appPriv, BUFFER_OUT_SIZE);
-  omxErr = OMX_AllocateBuffer(appPriv->rtmpsrchandle, &appPriv->outBufferRtmpsrcAudio[1], 1, appPriv, BUFFER_OUT_SIZE);
-  tsem_down(appPriv->rtmpsrcEventSem);
+  omx_err = OMX_AllocateBuffer(app_priv->rtmpsrchandle, &app_priv->outBufferRtmpsrcVideo[0], 0, app_priv, BUFFER_OUT_SIZE);
+  omx_err = OMX_AllocateBuffer(app_priv->rtmpsrchandle, &app_priv->outBufferRtmpsrcVideo[1], 0, app_priv, BUFFER_OUT_SIZE);
+  omx_err = OMX_AllocateBuffer(app_priv->rtmpsrchandle, &app_priv->outBufferRtmpsrcAudio[0], 1, app_priv, BUFFER_OUT_SIZE);
+  omx_err = OMX_AllocateBuffer(app_priv->rtmpsrchandle, &app_priv->outBufferRtmpsrcAudio[1], 1, app_priv, BUFFER_OUT_SIZE);
+  tsem_down(app_priv->rtmpsrcEventSem);
   LOGI("Rtmpsrc in idle state");
 
-  omxErr = OMX_SendCommand(appPriv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateExecuting, NULL);
-  if (omxErr != OMX_ErrorNone) {
+  omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateExecuting, NULL);
+  if (omx_err != OMX_ErrorNone) {
     LOGE("Rtmpsrc set to executing failed");
     exit(1);
   }
-  tsem_down(appPriv->rtmpsrcEventSem);
+  tsem_down(app_priv->rtmpsrcEventSem);
   LOGI("Rtmpsrc in executing state");
 
-  omxErr = OMX_FillThisBuffer(appPriv->rtmpsrchandle, appPriv->outBufferRtmpsrcVideo[0]);
-  omxErr = OMX_FillThisBuffer(appPriv->rtmpsrchandle, appPriv->outBufferRtmpsrcVideo[1]);
-  omxErr = OMX_FillThisBuffer(appPriv->rtmpsrchandle, appPriv->outBufferRtmpsrcAudio[0]);
-  omxErr = OMX_FillThisBuffer(appPriv->rtmpsrchandle, appPriv->outBufferRtmpsrcAudio[1]);
+  omx_err = OMX_FillThisBuffer(app_priv->rtmpsrchandle, app_priv->outBufferRtmpsrcVideo[0]);
+  omx_err = OMX_FillThisBuffer(app_priv->rtmpsrchandle, app_priv->outBufferRtmpsrcVideo[1]);
+  omx_err = OMX_FillThisBuffer(app_priv->rtmpsrchandle, app_priv->outBufferRtmpsrcAudio[0]);
+  omx_err = OMX_FillThisBuffer(app_priv->rtmpsrchandle, app_priv->outBufferRtmpsrcAudio[1]);
 
-  LOGI("Waiting for EOS = %d", appPriv->eofSem->semval);
-  tsem_down(appPriv->eofSem);
+  thread->Run();
 
-  omxErr = OMX_SendCommand(appPriv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
-  tsem_down(appPriv->rtmpsrcEventSem);
+  thread->set_socketserver(NULL);
+
+  omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
+  tsem_down(app_priv->rtmpsrcEventSem);
   LOGI("Rtmpsrc in idle state");
 
-  omxErr = OMX_SendCommand(appPriv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateLoaded, NULL);
-  omxErr = OMX_FreeBuffer(appPriv->rtmpsrchandle, 0, appPriv->outBufferRtmpsrcVideo[0]);
-  omxErr = OMX_FreeBuffer(appPriv->rtmpsrchandle, 0, appPriv->outBufferRtmpsrcVideo[1]);
-  omxErr = OMX_FreeBuffer(appPriv->rtmpsrchandle, 1, appPriv->outBufferRtmpsrcAudio[0]);
-  omxErr = OMX_FreeBuffer(appPriv->rtmpsrchandle, 1, appPriv->outBufferRtmpsrcAudio[1]);
-  tsem_down(appPriv->rtmpsrcEventSem);
+  omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateLoaded, NULL);
+  omx_err = OMX_FreeBuffer(app_priv->rtmpsrchandle, 0, app_priv->outBufferRtmpsrcVideo[0]);
+  omx_err = OMX_FreeBuffer(app_priv->rtmpsrchandle, 0, app_priv->outBufferRtmpsrcVideo[1]);
+  omx_err = OMX_FreeBuffer(app_priv->rtmpsrchandle, 1, app_priv->outBufferRtmpsrcAudio[0]);
+  omx_err = OMX_FreeBuffer(app_priv->rtmpsrchandle, 1, app_priv->outBufferRtmpsrcAudio[1]);
+  tsem_down(app_priv->rtmpsrcEventSem);
   LOGI("Rtmpsrc in loaded state");
 
-  OMX_FreeHandle(appPriv->rtmpsrchandle);
+  OMX_FreeHandle(app_priv->rtmpsrchandle);
 
   OMX_Deinit();
 
-  free(appPriv->rtmpsrcEventSem);
-  appPriv->rtmpsrcEventSem = NULL;
-  free(appPriv->eofSem);
-  appPriv->eofSem = NULL;
+  free(app_priv->rtmpsrcEventSem);
+  app_priv->rtmpsrcEventSem = NULL;
 
-  free(appPriv);
-  appPriv = NULL;
+  free(app_priv);
+  app_priv = NULL;
 
   xlog::log_close();
   return 0;
@@ -120,22 +207,22 @@ static OMX_ERRORTYPE test_OMX_ComponentNameEnum(void)
 {
   char *name;
   OMX_U32 index;
-  OMX_ERRORTYPE omxErr = OMX_ErrorNone;
+  OMX_ERRORTYPE omx_err = OMX_ErrorNone;
 
   LOGI("GENERAL TEST");
   name = (char *) malloc(OMX_MAX_STRINGNAME_SIZE);
   index = 0;
   for ( ; ; ) {
-    omxErr = OMX_ComponentNameEnum(name, OMX_MAX_STRINGNAME_SIZE, index);
-    if ((name != NULL) && (omxErr == OMX_ErrorNone)) {
+    omx_err = OMX_ComponentNameEnum(name, OMX_MAX_STRINGNAME_SIZE, index);
+    if ((name != NULL) && (omx_err == OMX_ErrorNone)) {
       LOGI("component %i is %s", index, name);
     } else break;
     ++index;
   }
   free(name);
   LOGI("GENERAL TEST result: %s",
-       omxErr == OMX_ErrorNoMore ? "PASS" : "FAILURE");
-  return omxErr;
+       omx_err == OMX_ErrorNoMore ? "PASS" : "FAILURE");
+  return omx_err;
 }
 
 OMX_ERRORTYPE rtmpsrcEventHandler(
@@ -146,7 +233,7 @@ OMX_ERRORTYPE rtmpsrcEventHandler(
     OMX_OUT OMX_U32 Data2,
     OMX_OUT OMX_PTR pEventData)
 {
-  appPrivateType *appPriv = (appPrivateType *) pAppData;
+  appPrivateType *app_priv = (appPrivateType *) pAppData;
 
   if (eEvent == OMX_EventCmdComplete) {
     if (Data1 == OMX_CommandStateSet) {
@@ -170,16 +257,16 @@ OMX_ERRORTYPE rtmpsrcEventHandler(
         LOGI("Rtmpsrc state changed in OMX_StateWaitForResources");
         break;
       }
-      tsem_up(appPriv->rtmpsrcEventSem);
+      tsem_up(app_priv->rtmpsrcEventSem);
     } else if (Data1 == OMX_CommandPortEnable) {
       LOGI("Received port enable event");
-      tsem_up(appPriv->rtmpsrcEventSem);
+      tsem_up(app_priv->rtmpsrcEventSem);
     } else if (Data1 == OMX_CommandPortDisable) {
       LOGI("Received port disable event");
-      tsem_up(appPriv->rtmpsrcEventSem);
+      tsem_up(app_priv->rtmpsrcEventSem);
     } else if (Data1 == OMX_CommandFlush) {
       LOGI("Received flush event");
-      tsem_up(appPriv->rtmpsrcEventSem);
+      tsem_up(app_priv->rtmpsrcEventSem);
     } else {
       LOGI("Received event event=%d data1=%d data2=%d", eEvent, (int) Data1, (int) Data2);
     }
@@ -197,13 +284,13 @@ OMX_ERRORTYPE rtmpsrcFillBufferDone(
     OMX_OUT OMX_PTR pAppData,
     OMX_OUT OMX_BUFFERHEADERTYPE* pBuffer)
 {
-  appPrivateType *appPriv = (appPrivateType *) pAppData;
-  OMX_ERRORTYPE omxErr;
+  appPrivateType *app_priv = (appPrivateType *) pAppData;
+  OMX_ERRORTYPE omx_err;
 
   if (pBuffer != NULL) {
-    if (!appPriv->bEOS) {
+    if (!app_priv->bEOS) {
       if (pBuffer->nFlags == OMX_BUFFERFLAG_EOS) {
-        appPriv->bEOS = OMX_TRUE;
+        app_priv->bEOS = OMX_TRUE;
       } else {
         if (pBuffer->nFilledLen == 0) {
           LOGE("Ouch! No data in the output buffer");
@@ -212,11 +299,10 @@ OMX_ERRORTYPE rtmpsrcFillBufferDone(
 
         pBuffer->nFilledLen = 0;
         pBuffer->nFlags = 0;
-
-        omxErr = OMX_FillThisBuffer(hComponent, pBuffer);
-        if (omxErr != OMX_ErrorNone) {
+        omx_err = OMX_FillThisBuffer(hComponent, pBuffer);
+        if (omx_err != OMX_ErrorNone) {
           LOGE("OMX_FillThisBuffer failed");
-          return omxErr;
+          return omx_err;
         }
       }
     } else {
