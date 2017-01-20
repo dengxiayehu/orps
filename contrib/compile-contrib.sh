@@ -20,7 +20,7 @@ TARS_HDLR_ARR=(
 
 function compile_zlib() {
   CFLAGS="-fPIC" ./configure --const --static --64 --prefix="$CONTRIB_LINUX_INSTALL_DIR" &&
-    make $MKFLAGS &&
+    make $MKFLAGS_NPROC &&
     make install && return 0
   return 1
 }
@@ -28,14 +28,14 @@ function compile_zlib() {
 function compile_openssl() {
   ./Configure linux-x86_64 -fPIC threads zlib no-shared --prefix="$CONTRIB_LINUX_INSTALL_DIR" --with-zlib-lib="$CONTRIB_LINUX_INSTALL_DIR/lib" --with-zlib-include="$CONTRIB_LINUX_INSTALL_DIR/include" &&
     make depend &&
-    make &&
+    make $MKFLAGS &&
     make install && return 0
   return 1
 }
 
 function compile_librtmp() {
   make clean && \
-    make $MKFLAGS \
+    make $MKFLAGS_NPROC \
       INC=-I"$CONTRIB_LINUX_INSTALL_DIR/include" XCFLAGS="-fPIC" XLDFLAGS="-L$CONTRIB_LINUX_INSTALL_DIR/lib" \
       prefix="$CONTRIB_LINUX_INSTALL_DIR" \
       install && return 0
@@ -51,8 +51,8 @@ function compile_libomxil_bellagio() {
   autoreconf -i -f . &&
     ./configure --enable-debug --prefix="$CONTRIB_LINUX_INSTALL_DIR" &&
     make $MKFLAGS CFLAGS="$_cflags" &&
-    make $MKFLAGS CFLAGS="$_cflags" check &&
-    make $MKFLAGS CFLAGS="$_cflags" install && return 0
+    make $MKFLAGS CFLAGS="$_cflags" install &&
+    make $MKFLAGS CFLAGS="$_cflags" check && return 0
   return 1
 }
 
@@ -61,7 +61,7 @@ function compile_webrtc() {
   mkdir -p "$WEBRTC_BUILD" && cd "$WEBRTC_BUILD"
 
   cmake ..
-  make $MKFLAGS
+  make $MKFLAGS_NPROC
 }
 
 function extract() {

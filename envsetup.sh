@@ -1,12 +1,12 @@
 #! /usr/bin/env bash
 # envsetup.sh
 
-if [ -z "$MKFLAGS" ]; then
+if [ -z "$NPROC" ]; then
   UNAMES=$(uname -s)
   if which nproc >/dev/null; then
-    export MKFLAGS=-j`nproc`
+    export NPROC=`nproc`
   elif [ "$UNAMES" == "Darwin" ] && which sysctl >/dev/null; then
-    export MKFLAGS=-j`sysctl -n machdep.cpu.thread_count`
+    export NPROC=`sysctl -n machdep.cpu.thread_count`
   fi
 fi
 
