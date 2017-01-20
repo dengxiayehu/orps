@@ -70,12 +70,25 @@ void SignalProcessThread::Run()
   }
 }
 
+static OMX_CALLBACKTYPE rtmpoutcallbacks = {
+  .EventHandler     = rtmpoutEventHandler,
+  .EmptyBufferDone  = rtmpoutEmptyBufferDone,
+  .FillBufferDone   = NULL
+};
+
+static OMX_CALLBACKTYPE clocksrccallbacks = {
+  .EventHandler     = clocksrcEventHandler,
+  .EmptyBufferDone  = NULL,
+  .FillBufferDone   = clocksrcFillBufferDone,
+};
+
 static OMX_ERRORTYPE test_OMX_ComponentNameEnum(void);
 
 int main(int argc, const char *argv[])
 {
   appPrivateType *app_priv;
   OMX_ERRORTYPE omx_err;
+  OMX_INDEXTYPE index_param_url;
 
   xlog::log_add_dst("./omxrtmpouttest.log");
 
@@ -93,7 +106,12 @@ int main(int argc, const char *argv[])
   }
 
   app_priv = (appPrivateType *) malloc(sizeof(appPrivateType));
+  app_priv->rtmpoutEventSem = (tsem_t *) malloc(sizeof(tsem_t));
+  app_priv->clocksrcEventSem = (tsem_t *) malloc(sizeof(tsem_t));
   app_priv->bEOS = OMX_FALSE;
+
+  tsem_init(app_priv->rtmpoutEventSem, 0);
+  tsem_init(app_priv->clocksrcEventSem, 0);
 
   rtc::AutoThread auto_thread;
   rtc::Thread *thread = rtc::Thread::Current();
@@ -114,12 +132,48 @@ int main(int argc, const char *argv[])
   LOGI("------------------------------------");
   test_OMX_ComponentNameEnum();
 
+  omx_err = OMX_GetHandle(&app_priv->rtmpouthandle, (OMX_STRING) "OMX.st.rtmpout", app_priv, &rtmpoutcallbacks);
+  if (omx_err != OMX_ErrorNone) {
+    LOGE("Rtmpout component not found");
+    exit(1);
+  }
+  LOGI("Rtmpout component found");
+
+  omx_err = OMX_GetHandle(&app_priv->clocksrchandle, (OMX_STRING) "OMX.st.clocksrc", app_priv, &clocksrccallbacks);
+  if (omx_err != OMX_ErrorNone) {
+   LOGE("Clocksrc component not found");
+   exit(1);
+  }
+  LOGI("Clocksrc component found");
+
+  omx_err = OMX_GetExtensionIndex(app_priv->rtmpouthandle, (OMX_STRING) "OMX.ST.index.param.outputurl",
+                                  &index_param_url);
+  if (omx_err != OMX_ErrorNone) {
+    LOGE("Error in get extension index");
+    exit(1);
+  }
+
+  char url[2048];
+  LOGI("Url param index: %x", index_param_url);
+  omx_err = OMX_SetParameter(app_priv->rtmpouthandle, index_param_url, (OMX_PTR) "rtmp://127.0.0.1/live/xyz");
+  if (omx_err != OMX_ErrorNone) {
+    LOGE("Error in output format");
+    exit(1);
+  }
+  OMX_GetParameter(app_priv->rtmpouthandle, index_param_url, url);
+  LOGI("Test output url set to: %s\"", url);
+
   LOGI("Rtmpout test running ..");
   thread->Run();
 
   thread->set_socketserver(NULL);
 
+  OMX_FreeHandle(app_priv->rtmpouthandle);
+
   OMX_Deinit();
+
+  SAFE_FREE(app_priv->clocksrcEventSem);
+  SAFE_FREE(app_priv->rtmpoutEventSem);
 
   free(app_priv);
   app_priv = NULL;
@@ -148,4 +202,42 @@ static OMX_ERRORTYPE test_OMX_ComponentNameEnum(void)
   LOGI("GENERAL TEST result: %s",
        omx_err == OMX_ErrorNoMore ? "PASS" : "FAILURE");
   return omx_err;
+}
+
+OMX_ERRORTYPE rtmpoutEventHandler(
+    OMX_OUT OMX_HANDLETYPE hcomp,
+    OMX_OUT OMX_PTR app_data,
+    OMX_OUT OMX_EVENTTYPE event,
+    OMX_OUT OMX_U32 data1,
+    OMX_OUT OMX_U32 data2,
+    OMX_OUT OMX_PTR event_data)
+{
+  return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE rtmpoutEmptyBufferDone(
+    OMX_OUT OMX_HANDLETYPE hcomp,
+    OMX_OUT OMX_PTR app_data,
+    OMX_OUT OMX_BUFFERHEADERTYPE *buffer)
+{
+  return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE clocksrcEventHandler(
+    OMX_OUT OMX_HANDLETYPE hcomp,
+    OMX_OUT OMX_PTR app_data,
+    OMX_OUT OMX_EVENTTYPE event,
+    OMX_OUT OMX_U32 data1,
+    OMX_OUT OMX_U32 data2,
+    OMX_OUT OMX_PTR event_data)
+{
+  return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE clocksrcFillBufferDone(
+    OMX_OUT OMX_HANDLETYPE hcomp,
+    OMX_OUT OMX_PTR app_data,
+    OMX_OUT OMX_BUFFERHEADERTYPE *buffer)
+{
+  return OMX_ErrorNone;
 }

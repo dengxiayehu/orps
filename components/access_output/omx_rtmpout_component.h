@@ -8,19 +8,39 @@ extern "C" {
 #include <OMX_Types.h>
 #include <OMX_Component.h>
 #include <OMX_Core.h>
-#include <omx_base_filter.h>
+#include <omx_base_sink.h>
 
 #define RTMPOUT_COMP_NAME "OMX.st.rtmpout"
 #define RTMPOUT_COMP_ROLE "rtmpout"
 #define MAX_RTMPOUT_COMPONENTS 1
 
-DERIVEDCLASS(omx_rtmpout_component_PrivateType, omx_base_filter_PrivateType)
-#define omx_rtmpout_component_PrivateType_FIELDS omx_base_filter_PrivateType_FIELDS \
-  OMX_TIME_CLOCKSTATE clk_state;
+DERIVEDCLASS(omx_rtmpout_component_PrivateType, omx_base_sink_PrivateType)
+#define omx_rtmpout_component_PrivateType_FIELDS omx_base_sink_PrivateType_FIELDS \
+  OMX_STRING output_url;
 ENDCLASS(omx_rtmpout_component_PrivateType)
 
 OMX_ERRORTYPE omx_rtmpout_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX_STRING comp_name);
 OMX_ERRORTYPE omx_rtmpout_component_Destructor(OMX_COMPONENTTYPE *omx_comp);
+OMX_ERRORTYPE omx_rtmpout_component_MessageHandler(OMX_COMPONENTTYPE *omx_comp, internalRequestMessageType *message);
+
+void omx_rtmpout_component_BufferMgmtCallback(
+    OMX_COMPONENTTYPE *omx_comp,
+    OMX_BUFFERHEADERTYPE *input_buffer);
+
+OMX_ERRORTYPE omx_rtmpout_component_SetParameter(
+    OMX_IN OMX_HANDLETYPE hcomp,
+    OMX_IN OMX_INDEXTYPE param_index,
+    OMX_IN OMX_PTR comp_param);
+
+OMX_ERRORTYPE omx_rtmpout_component_GetParameter(
+    OMX_IN OMX_HANDLETYPE hcomp,
+    OMX_IN OMX_INDEXTYPE param_index,
+    OMX_INOUT OMX_PTR comp_param);
+
+OMX_ERRORTYPE omx_rtmpout_component_GetExtensionIndex(
+    OMX_IN OMX_HANDLETYPE hcomp,
+    OMX_IN OMX_STRING param_name,
+    OMX_OUT OMX_INDEXTYPE *index);
 
 #ifdef _cplusplus
 }
