@@ -1,0 +1,17 @@
+{
+   std::string leak warning
+   Memcheck:Leak
+   match-leak-kinds: possible
+   fun:_Znwm
+   fun:_ZN9__gnu_cxx13new_allocatorIcE8allocateEmPKv
+   fun:_ZNSs4_Rep9_S_createEmmRKSaIcE
+   fun:_ZNSs4_Rep8_M_cloneERKSaIcEm
+   fun:_ZNSs7reserveEm
+   fun:_ZNSs6appendEPKcm
+   fun:_ZNSs6appendEPKc
+   fun:_ZNSspLEPKc
+   fun:_ZN3rtc6Thread7SetNameERKSsPKv
+   fun:_ZN3rtc6ThreadC1EPNS_12SocketServerE
+   fun:_ZN3rtc13ThreadManager17WrapCurrentThreadEv
+   fun:_ZN3rtc13ThreadManagerC1Ev
+}

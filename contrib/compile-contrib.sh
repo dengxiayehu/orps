@@ -48,6 +48,7 @@ function compile_libomxil_bellagio() {
   export BELLAGIO_SEARCH_PATH=$CONTRIB_LINUX_INSTALL_DIR/lib/bellagio/:$CONTRIB_LINUX_INSTALL_DIR/lib/extern_omxcomp/lib/:$CONTRIB_LINUX_INSTALL_DIR/lib/
   export PKG_CONFIG_PATH=$CONTRIB_LINUX_INSTALL_DIR/lib/pkgconfig/:/usr/local/lib/pkgconfig/:/usr/lib/pkgconfig/:$PKG_CONFIG_PATH
   local _cflags="-g -O0 -Wno-error=switch"
+  [ -n "$BELLAGIO_VERBOSE" ] && _cflags="$_cflags -DCONFIG_DEBUG_LEVEL=255"
   autoreconf -i -f . &&
     ./configure --enable-debug --prefix="$CONTRIB_LINUX_INSTALL_DIR" &&
     make $MKFLAGS CFLAGS="$_cflags" &&

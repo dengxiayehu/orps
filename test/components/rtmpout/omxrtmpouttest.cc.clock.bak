@@ -76,18 +76,13 @@ static OMX_CALLBACKTYPE rtmpoutcallbacks = {
   .FillBufferDone   = NULL
 };
 
+static OMX_CALLBACKTYPE clocksrccallbacks = {
+  .EventHandler     = clocksrcEventHandler,
+  .EmptyBufferDone  = NULL,
+  .FillBufferDone   = clocksrcFillBufferDone,
+};
+
 static OMX_ERRORTYPE test_OMX_ComponentNameEnum(void);
-
-static void setHeader(OMX_PTR header, OMX_U32 size)
-{
-  OMX_VERSIONTYPE* ver = (OMX_VERSIONTYPE*) ((OMX_U8 *) header + sizeof(OMX_U32));
-  *((OMX_U32*) header) = size;
-
-  ver->s.nVersionMajor = VERSIONMAJOR;
-  ver->s.nVersionMinor = VERSIONMINOR;
-  ver->s.nRevision = VERSIONREVISION;
-  ver->s.nStep = VERSIONSTEP;
-}
 
 int main(int argc, const char *argv[])
 {
@@ -112,9 +107,11 @@ int main(int argc, const char *argv[])
 
   app_priv = (appPrivateType *) malloc(sizeof(appPrivateType));
   app_priv->rtmpout_event_sem = (tsem_t *) malloc(sizeof(tsem_t));
+  app_priv->clocksrc_event_sem = (tsem_t *) malloc(sizeof(tsem_t));
   app_priv->bEOS = OMX_FALSE;
 
   tsem_init(app_priv->rtmpout_event_sem, 0);
+  tsem_init(app_priv->clocksrc_event_sem, 0);
 
   rtc::AutoThread auto_thread;
   rtc::Thread *thread = rtc::Thread::Current();
@@ -142,6 +139,13 @@ int main(int argc, const char *argv[])
   }
   LOGI("Rtmpout component found");
 
+  omx_err = OMX_GetHandle(&app_priv->clocksrchandle, (OMX_STRING) "OMX.st.clocksrc", app_priv, &clocksrccallbacks);
+  if (omx_err != OMX_ErrorNone) {
+   LOGE("Clocksrc component not found");
+   exit(1);
+  }
+  LOGI("Clocksrc component found");
+
   omx_err = OMX_GetExtensionIndex(app_priv->rtmpouthandle, (OMX_STRING) "OMX.ST.index.param.outputurl",
                                   &index_param_url);
   if (omx_err != OMX_ErrorNone) {
@@ -159,22 +163,6 @@ int main(int argc, const char *argv[])
   OMX_GetParameter(app_priv->rtmpouthandle, index_param_url, url);
   LOGI("Test output url set to: %s\"", url);
 
-  OMX_PORT_PARAM_TYPE port_param;
-  setHeader(&port_param, sizeof(OMX_PORT_PARAM_TYPE));
-  omx_err = OMX_GetParameter(app_priv->rtmpouthandle, OMX_IndexParamVideoInit, &port_param);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Rtmpout get parameter video init failed");
-    exit(1);
-  }
-  LOGI("video port param, start=%d nports=%d", port_param.nStartPortNumber, port_param.nPorts);
-
-  omx_err = OMX_GetParameter(app_priv->rtmpouthandle, OMX_IndexParamAudioInit, &port_param);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Rtmpout get parameter audio init failed");
-    exit(1);
-  }
-  LOGI("audio port param, start=%d nports=%d", port_param.nStartPortNumber, port_param.nPorts);
-
   omx_err = OMX_SendCommand(app_priv->rtmpouthandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
   if (omx_err != OMX_ErrorNone) {
     LOGE("Rtmpout set to idle failed");
@@ -185,34 +173,13 @@ int main(int argc, const char *argv[])
   omx_err = OMX_AllocateBuffer(app_priv->rtmpouthandle, &app_priv->inbuffer_audio[0], 1, app_priv, BUFFER_OUT_SIZE);
   omx_err = OMX_AllocateBuffer(app_priv->rtmpouthandle, &app_priv->inbuffer_audio[1], 1, app_priv, BUFFER_OUT_SIZE);
   tsem_down(app_priv->rtmpout_event_sem);
-  LOGI("Rtmpout in idle state");
-
-  omx_err = OMX_SendCommand(app_priv->rtmpouthandle, OMX_CommandStateSet, OMX_StateExecuting, NULL);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Rtmpout set to executing failed");
-    exit(1);
-  }
-  tsem_down(app_priv->rtmpout_event_sem);
-  LOGI("Rtmpout in executing state");
-
-  omx_err = OMX_EmptyThisBuffer(app_priv->rtmpouthandle, app_priv->inbuffer_video[0]);
-  omx_err = OMX_EmptyThisBuffer(app_priv->rtmpouthandle, app_priv->inbuffer_video[1]);
-  omx_err = OMX_EmptyThisBuffer(app_priv->rtmpouthandle, app_priv->inbuffer_audio[0]);
-  omx_err = OMX_EmptyThisBuffer(app_priv->rtmpouthandle, app_priv->inbuffer_audio[1]);
 
   LOGI("Rtmpout test running ..");
   thread->Run();
 
   thread->set_socketserver(NULL);
 
-  omx_err = OMX_SendCommand(app_priv->rtmpouthandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Rtmpout set to idle failed");
-    exit(1);
-  }
-  tsem_down(app_priv->rtmpout_event_sem);
-  LOGI("Rtmpout in executing state");
-
+  LOGE("@@1");
   omx_err = OMX_SendCommand(app_priv->rtmpouthandle, OMX_CommandStateSet, OMX_StateLoaded, NULL);
   if (omx_err != OMX_ErrorNone) {
     LOGE("Rtmpout set to loaded failed");
@@ -223,12 +190,16 @@ int main(int argc, const char *argv[])
   OMX_FreeBuffer(app_priv->rtmpouthandle, 1, app_priv->inbuffer_audio[0]);
   OMX_FreeBuffer(app_priv->rtmpouthandle, 1, app_priv->inbuffer_audio[1]);
   tsem_down(app_priv->rtmpout_event_sem);
-  LOGI("Rtmpout set to loaded state");
+  LOGE("@@2");
 
+  OMX_FreeHandle(app_priv->clocksrchandle);
+  LOGE("@@3");
   OMX_FreeHandle(app_priv->rtmpouthandle);
+  LOGE("@@4");
 
   OMX_Deinit();
 
+  SAFE_FREE(app_priv->clocksrc_event_sem);
   SAFE_FREE(app_priv->rtmpout_event_sem);
 
   free(app_priv);
@@ -321,24 +292,24 @@ OMX_ERRORTYPE rtmpoutEmptyBufferDone(
     OMX_OUT OMX_PTR app_data,
     OMX_OUT OMX_BUFFERHEADERTYPE *buffer)
 {
-  appPrivateType *app_priv = (appPrivateType *) app_data;
-  OMX_ERRORTYPE omx_err;
+  return OMX_ErrorNone;
+}
 
-  if (buffer != NULL) {
-    if (!app_priv->bEOS) {
-      char str[] = "Hello, world!";
-      buffer->nFilledLen = strlen(str) + 1;
-      memcpy(buffer->pBuffer, str, buffer->nFilledLen);
-      omx_err = OMX_EmptyThisBuffer(app_priv->rtmpouthandle, buffer);
-      if (omx_err != OMX_ErrorNone) {
-        LOGE("OMX_EmptyThisBuffer failed");
-        return omx_err;
-      }
-    } else {
-      LOGI("eos=%x dropping this buffer", buffer->nFlags);
-    }
-  } else {
-    LOGE("NULL buffer to input");
-  }
-  return omx_err;
+OMX_ERRORTYPE clocksrcEventHandler(
+    OMX_OUT OMX_HANDLETYPE hcomp,
+    OMX_OUT OMX_PTR app_data,
+    OMX_OUT OMX_EVENTTYPE event,
+    OMX_OUT OMX_U32 data1,
+    OMX_OUT OMX_U32 data2,
+    OMX_OUT OMX_PTR event_data)
+{
+  return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE clocksrcFillBufferDone(
+    OMX_OUT OMX_HANDLETYPE hcomp,
+    OMX_OUT OMX_PTR app_data,
+    OMX_OUT OMX_BUFFERHEADERTYPE *buffer)
+{
+  return OMX_ErrorNone;
 }
