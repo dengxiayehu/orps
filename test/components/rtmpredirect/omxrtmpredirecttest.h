@@ -5,19 +5,9 @@
 extern "C" {
 #endif
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <fcntl.h>
-#include <string.h>
-#include <pthread.h>
-#include <ctype.h>
-
 #include <OMX_Core.h>
 #include <OMX_Component.h>
 #include <OMX_Types.h>
-#include <OMX_Video.h>
-#include <OMX_Audio.h>
-
 #include <tsemaphore.h>
 
 #define VERSIONMAJOR    1
@@ -25,10 +15,7 @@ extern "C" {
 #define VERSIONREVISION 0
 #define VERSIONSTEP     0
 
-#define VIDEO_BUFFER_SIZE (65536)
-#define AUDIO_BUFFER_SIZE (65536)
-
-typedef struct appPrivateType {
+typedef struct AppPrivateType {
   OMX_HANDLETYPE rtmpsrchandle;
   OMX_HANDLETYPE rtmpouthandle;
   OMX_HANDLETYPE clocksrchandle;
@@ -38,7 +25,7 @@ typedef struct appPrivateType {
   tsem_t *clocksrc_event_sem;
   tsem_t *videoschd_event_sem;
   OMX_BOOL bEOS;
-} appPrivateType;
+} AppPrivateType;
 
 OMX_ERRORTYPE rtmpsrc_event_handler(
     OMX_OUT OMX_HANDLETYPE hcomp,

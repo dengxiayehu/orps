@@ -8,79 +8,8 @@
 
 #include "omxrtmpredirecttest.h"
 
-class CustomSocketServer : public rtc::PhysicalSocketServer {
-public:
-  CustomSocketServer(rtc::Thread *thread, appPrivateType *app_priv)
-    : thread_(thread), app_priv_(app_priv) { }
-  virtual ~CustomSocketServer() { }
-
-  virtual bool Wait(int cms, bool process_io) override {
-    if (app_priv_->bEOS) {
-      thread_->Quit();
-    }
-    return rtc::PhysicalSocketServer::Wait(10, process_io);
-  }
-
-protected:
-  rtc::Thread *thread_;
-  appPrivateType *app_priv_;
-};
-
-class SignalProcessThread : public rtc::Thread {
-public:
-  SignalProcessThread(sigset_t *set, Thread *main_thread, appPrivateType *app_priv)
-    : set_(set), main_thread_(main_thread), app_priv_(app_priv) { }
-  virtual ~SignalProcessThread() { }
-  virtual void Run();
-
-private:
-  sigset_t *set_;
-  Thread *main_thread_;
-  appPrivateType *app_priv_;
-};
-
-class FunctorQuit {
-public:
-  explicit FunctorQuit(appPrivateType *app_priv)
-    : app_priv_(app_priv) { }
-  void operator()() {
-    app_priv_->bEOS = OMX_TRUE;
-  }
-
-private:
-  appPrivateType *app_priv_;
-};
-
-void SignalProcessThread::Run()
-{
-  int ret, sig;
-
-  for ( ; ; ) {
-    ret = sigwait(set_, &sig);
-    if (ret != 0) {
-      LOGE("sigwait failed: %s", ERRNOMSG);
-      break;
-    }
-
-    if (sig == SIGINT) {
-      LOGI("Program received signal %d", sig);
-      FunctorQuit f(app_priv_);
-      main_thread_->Invoke<void>(f);
-      break;
-    }
-  }
-}
-
-static void setHeader(OMX_PTR header, OMX_U32 size)
-{
-  OMX_VERSIONTYPE* ver = (OMX_VERSIONTYPE*) ((OMX_U8 *) header + sizeof(OMX_U32));
-  *((OMX_U32*) header) = size;
-
-  ver->s.nVersionMajor = VERSIONMAJOR;
-  ver->s.nVersionMinor = VERSIONMINOR;
-  ver->s.nRevision = VERSIONREVISION;
-  ver->s.nStep = VERSIONSTEP;
-}
+#define VIDEO_BUFFER_SIZE (65536)
+#define AUDIO_BUFFER_SIZE (65536)
 
 static OMX_CALLBACKTYPE rtmpsrccallbacks = {
   .EventHandler     = rtmpsrc_event_handler,
@@ -103,20 +32,74 @@ static OMX_CALLBACKTYPE videoschdcallbacks = {
   .FillBufferDone   = videoschd_fillbuffer_done
 };
 
-void set_header(OMX_PTR header, OMX_U32 size)
-{
-  OMX_VERSIONTYPE* ver = (OMX_VERSIONTYPE*) ((OMX_U8 *) header + sizeof(OMX_U32));
-  *((OMX_U32*) header) = size;
+static void set_header(OMX_PTR header, OMX_U32 size);
 
-  ver->s.nVersionMajor = VERSIONMAJOR;
-  ver->s.nVersionMinor = VERSIONMINOR;
-  ver->s.nRevision = VERSIONREVISION;
-  ver->s.nStep = VERSIONSTEP;
+class CustomSocketServer : public rtc::PhysicalSocketServer {
+public:
+  CustomSocketServer(rtc::Thread *thread, AppPrivateType *app_priv)
+    : thread_(thread), app_priv_(app_priv) { }
+  virtual ~CustomSocketServer() { }
+
+  virtual bool Wait(int cms, bool process_io) override {
+    if (app_priv_->bEOS) {
+      thread_->Quit();
+    }
+    return rtc::PhysicalSocketServer::Wait(10, process_io);
+  }
+
+protected:
+  rtc::Thread *thread_;
+  AppPrivateType *app_priv_;
+};
+
+class SignalProcessThread : public rtc::Thread {
+public:
+  SignalProcessThread(sigset_t *set, Thread *main_thread, AppPrivateType *app_priv)
+    : set_(set), main_thread_(main_thread), app_priv_(app_priv) { }
+  virtual ~SignalProcessThread() { }
+  virtual void Run();
+
+private:
+  sigset_t *set_;
+  Thread *main_thread_;
+  AppPrivateType *app_priv_;
+};
+
+class FunctorQuit {
+public:
+  explicit FunctorQuit(AppPrivateType *app_priv)
+    : app_priv_(app_priv) { }
+  void operator()() {
+    app_priv_->bEOS = OMX_TRUE;
+  }
+
+private:
+  AppPrivateType *app_priv_;
+};
+
+void SignalProcessThread::Run()
+{
+  int ret, sig;
+
+  for ( ; ; ) {
+    ret = sigwait(set_, &sig);
+    if (ret != 0) {
+      LOGE("sigwait failed: %s", ERRNOMSG);
+      break;
+    }
+
+    if (sig == SIGINT) {
+      LOGI("Program received signal %d", sig);
+      FunctorQuit f(app_priv_);
+      main_thread_->Invoke<void>(f);
+      break;
+    }
+  }
 }
 
 int main(int argc, const char *argv[])
 {
-  appPrivateType *app_priv;
+  AppPrivateType *app_priv;
   OMX_ERRORTYPE omx_err;
 
   xlog::log_add_dst("./omxrtmpredirecttest.log");
@@ -126,7 +109,7 @@ int main(int argc, const char *argv[])
   sigaddset(&set, SIGINT);
   pthread_sigmask(SIG_BLOCK, &set, NULL);
 
-  app_priv = (appPrivateType *) calloc(1, sizeof(appPrivateType));
+  app_priv = (AppPrivateType *) calloc(1, sizeof(AppPrivateType));
   app_priv->rtmpsrc_event_sem = (tsem_t *) malloc(sizeof(tsem_t));
   app_priv->rtmpout_event_sem = (tsem_t *) malloc(sizeof(tsem_t));
   app_priv->clocksrc_event_sem = (tsem_t *) malloc(sizeof(tsem_t));
@@ -148,11 +131,13 @@ int main(int argc, const char *argv[])
 
   omx_err = OMX_Init();
 
+  // Get component handles
   omx_err = OMX_GetHandle(&app_priv->rtmpsrchandle, (OMX_STRING) "OMX.st.rtmpsrc", app_priv, &rtmpsrccallbacks);
   omx_err = OMX_GetHandle(&app_priv->rtmpouthandle, (OMX_STRING) "OMX.st.rtmpout", app_priv, &rtmpoutcallbacks);
   omx_err = OMX_GetHandle(&app_priv->clocksrchandle, (OMX_STRING) "OMX.st.clocksrc", app_priv, &clocksrccallbacks);
   omx_err = OMX_GetHandle(&app_priv->videoschdhandle, (OMX_STRING) "OMX.st.video.scheduler", app_priv, &videoschdcallbacks);
 
+  // Setup input/output rtmp urls
   OMX_INDEXTYPE omx_index;
   char url[1024];
   omx_err = OMX_GetExtensionIndex(app_priv->rtmpsrchandle, (OMX_STRING) "OMX.ST.index.param.inputurl",
@@ -167,78 +152,35 @@ int main(int argc, const char *argv[])
   OMX_GetParameter(app_priv->rtmpouthandle, omx_index, url);
   LOGI("Test rtmpout url set to: %s\"", url);
 
-  omx_err = OMX_SendCommand(app_priv->clocksrchandle, OMX_CommandPortDisable, 1, NULL);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Error in disenable port 1 in clocksrc");
-    exit(1);
-  }
-  omx_err = OMX_SendCommand(app_priv->clocksrchandle, OMX_CommandPortDisable, 2, NULL);
-  if (omx_err != OMX_ErrorNone) {
-   LOGE("Error in disenable port 2 in clocksrc");
-   exit(1);
-  }
-  tsem_down(app_priv->clocksrc_event_sem);
-  tsem_down(app_priv->clocksrc_event_sem);
+  // Enable port 2 in rtmpsrc/rtmpout
+  omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandPortEnable, 2, NULL);
+  tsem_down(app_priv->rtmpsrc_event_sem);
+  omx_err = OMX_SendCommand(app_priv->rtmpouthandle, OMX_CommandPortEnable, 2, NULL);
+  tsem_down(app_priv->rtmpout_event_sem);
 
-  omx_err = OMX_SetupTunnel(app_priv->clocksrchandle, 0, app_priv->videoschdhandle, 2);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Setup tunnel btwn clocksrc and video_schd failed");
-    exit(1);
-  }
+  // Setup the tunnels
+  omx_err = OMX_SetupTunnel(app_priv->clocksrchandle, 0, app_priv->rtmpsrchandle, 2);
+  omx_err = OMX_SetupTunnel(app_priv->clocksrchandle, 1, app_priv->rtmpouthandle, 2);
+  omx_err = OMX_SetupTunnel(app_priv->clocksrchandle, 2, app_priv->videoschdhandle, 2);
   omx_err = OMX_SetupTunnel(app_priv->rtmpsrchandle, 0, app_priv->videoschdhandle, 0);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Setup tunnel btwn rtmpsrc and video_schd failed");
-    exit(1);
-  }
   omx_err = OMX_SetupTunnel(app_priv->videoschdhandle, 1, app_priv->rtmpouthandle, 0);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Setup tunnel btwn video_schd and rtmpouthandle failed");
-    exit(1);
-  }
   omx_err = OMX_SetupTunnel(app_priv->rtmpsrchandle, 1, app_priv->rtmpouthandle, 1);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Setup audio tunnel btwn rtmpsrchandle and rtmpouthandle failed");
-    exit(1);
-  }
 
   OMX_PARAM_BUFFERSUPPLIERTYPE buffer_supplier;
   buffer_supplier.nPortIndex = 0;
   buffer_supplier.eBufferSupplier = OMX_BufferSupplyInput;
-  setHeader(&buffer_supplier, sizeof(OMX_PARAM_BUFFERSUPPLIERTYPE));
+  set_header(&buffer_supplier, sizeof(OMX_PARAM_BUFFERSUPPLIERTYPE));
   omx_err = OMX_SetParameter(app_priv->videoschdhandle, OMX_IndexParamCompBufferSupplier, &buffer_supplier);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Supplier failed 1");
-    exit(1);
-  }
+
   buffer_supplier.nPortIndex = 1;
   buffer_supplier.eBufferSupplier = OMX_BufferSupplyInput;
-  setHeader(&buffer_supplier, sizeof(OMX_PARAM_BUFFERSUPPLIERTYPE));
+  set_header(&buffer_supplier, sizeof(OMX_PARAM_BUFFERSUPPLIERTYPE));
   omx_err = OMX_SetParameter(app_priv->rtmpouthandle, OMX_IndexParamCompBufferSupplier, &buffer_supplier);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Supplier failed 2");
-    exit(1);
-  }
 
   omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
-  if (omx_err != OMX_ErrorNone) {
-   LOGE("Rtmpsrc set to idle state failed");
-   exit(1);
-  }
   omx_err = OMX_SendCommand(app_priv->rtmpouthandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Rtmpout set to idle state failed");
-    exit(1);
-  }
   omx_err = OMX_SendCommand(app_priv->clocksrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Clocksrc set to idle state failed");
-    exit(1);
-  }
   omx_err = OMX_SendCommand(app_priv->videoschdhandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Videoschd set to idle state failed");
-    exit(1);
-  }
 
   tsem_down(app_priv->rtmpsrc_event_sem);
   LOGI("Rtmpsrc in idle state");
@@ -250,44 +192,22 @@ int main(int argc, const char *argv[])
   LOGI("Videoschd in idle state");
 
   omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateExecuting, NULL);
-  if (omx_err != OMX_ErrorNone) {
-   LOGE("Rtmpsrc set to executing state failed");
-   exit(1);
-  }
   omx_err = OMX_SendCommand(app_priv->rtmpouthandle, OMX_CommandStateSet, OMX_StateExecuting, NULL);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Rtmpout set to executing state failed");
-    exit(1);
-  }
-  OMX_TIME_CONFIG_ACTIVEREFCLOCKTYPE  sRefClock;
-  setHeader(&sRefClock, sizeof(OMX_TIME_CONFIG_ACTIVEREFCLOCKTYPE));
-  sRefClock.eClock = OMX_TIME_RefClockAudio;
-  OMX_SetConfig(app_priv->clocksrchandle, OMX_IndexConfigTimeActiveRefClock,&sRefClock);
 
-  OMX_TIME_CONFIG_CLOCKSTATETYPE      sClockState;
-  OMX_TIME_CONFIG_SCALETYPE           sConfigScale;
-  OMX_ERRORTYPE err;
-  /* set the clock state to OMX_TIME_ClockStateWaitingForStartTime */
-  setHeader(&sClockState, sizeof(OMX_TIME_CONFIG_CLOCKSTATETYPE));
-  err = OMX_GetConfig(app_priv->clocksrchandle, OMX_IndexConfigTimeClockState, &sClockState);
-  sClockState.nWaitMask = OMX_CLOCKPORT1 || OMX_CLOCKPORT0;  /* wait for audio and video start time */
-  sClockState.eState = OMX_TIME_ClockStateWaitingForStartTime;
-  err = OMX_SetConfig(app_priv->clocksrchandle, OMX_IndexConfigTimeClockState, &sClockState);
-  if(err!=OMX_ErrorNone) {
-    LOGE("Error %08x In OMX_SetConfig \n",err);
-    exit(1);
-  }
-  err = OMX_GetConfig(app_priv->clocksrchandle, OMX_IndexConfigTimeClockState, &sClockState);
+  OMX_TIME_CONFIG_ACTIVEREFCLOCKTYPE  ref_clock;
+  set_header(&ref_clock, sizeof(OMX_TIME_CONFIG_ACTIVEREFCLOCKTYPE));
+  ref_clock.eClock = OMX_TIME_RefClockAudio;
+  OMX_SetConfig(app_priv->clocksrchandle, OMX_IndexConfigTimeActiveRefClock, &ref_clock);
+
+  OMX_TIME_CONFIG_CLOCKSTATETYPE      clock_state;
+  set_header(&clock_state, sizeof(OMX_TIME_CONFIG_CLOCKSTATETYPE));
+  omx_err = OMX_GetConfig(app_priv->clocksrchandle, OMX_IndexConfigTimeClockState, &clock_state);
+  clock_state.nWaitMask = OMX_CLOCKPORT1 || OMX_CLOCKPORT2;
+  clock_state.eState = OMX_TIME_ClockStateWaitingForStartTime;
+  omx_err = OMX_SetConfig(app_priv->clocksrchandle, OMX_IndexConfigTimeClockState, &clock_state);
+  omx_err = OMX_GetConfig(app_priv->clocksrchandle, OMX_IndexConfigTimeClockState, &clock_state);
   omx_err = OMX_SendCommand(app_priv->clocksrchandle, OMX_CommandStateSet, OMX_StateExecuting, NULL);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Clocksrc set to executing state failed");
-    exit(1);
-  }
   omx_err = OMX_SendCommand(app_priv->videoschdhandle, OMX_CommandStateSet, OMX_StateExecuting, NULL);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Videoschd set to executing state failed");
-    exit(1);
-  }
 
   tsem_down(app_priv->rtmpsrc_event_sem);
   LOGI("Rtmpsrc in executing state");
@@ -298,31 +218,15 @@ int main(int argc, const char *argv[])
   tsem_down(app_priv->videoschd_event_sem);
   LOGI("Videoschd in executing state");
 
-  LOGI("Running ..");
+  LOGI("Pipeline running ..");
   thread->Run();
 
   thread->set_socketserver(NULL);
 
   omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
-  if (omx_err != OMX_ErrorNone) {
-   LOGE("Rtmpsrc set to idle state failed");
-   exit(1);
-  }
   omx_err = OMX_SendCommand(app_priv->rtmpouthandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Rtmpout set to idle state failed");
-    exit(1);
-  }
   omx_err = OMX_SendCommand(app_priv->clocksrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Clocksrc set to idle state failed");
-    exit(1);
-  }
   omx_err = OMX_SendCommand(app_priv->videoschdhandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Videoschd set to idle state failed");
-    exit(1);
-  }
 
   tsem_down(app_priv->rtmpsrc_event_sem);
   LOGI("Rtmpsrc in idle state");
@@ -334,25 +238,9 @@ int main(int argc, const char *argv[])
   LOGI("Videoschd in idle state");
 
   omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateLoaded, NULL);
-  if (omx_err != OMX_ErrorNone) {
-   LOGE("Rtmpsrc set to loaded state failed");
-   exit(1);
-  }
   omx_err = OMX_SendCommand(app_priv->rtmpouthandle, OMX_CommandStateSet, OMX_StateLoaded, NULL);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Rtmpout set to loaded state failed");
-    exit(1);
-  }
   omx_err = OMX_SendCommand(app_priv->clocksrchandle, OMX_CommandStateSet, OMX_StateLoaded, NULL);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Clocksrc set to loaded state failed");
-    exit(1);
-  }
   omx_err = OMX_SendCommand(app_priv->videoschdhandle, OMX_CommandStateSet, OMX_StateLoaded, NULL);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Videoschd set to loaded state failed");
-    exit(1);
-  }
 
   tsem_down(app_priv->rtmpsrc_event_sem);
   LOGI("Rtmpsrc in loaded state");
@@ -381,6 +269,7 @@ int main(int argc, const char *argv[])
 
   free(app_priv);
   app_priv = NULL;
+  UNUSED(omx_err);
 
   xlog::log_close();
   return 0;
@@ -394,7 +283,7 @@ OMX_ERRORTYPE rtmpsrc_event_handler(
     OMX_OUT OMX_U32 data2,
     OMX_OUT OMX_PTR event_data)
 {
-  appPrivateType *app_priv = (appPrivateType *) app_data;
+  AppPrivateType *app_priv = (AppPrivateType *) app_data;
 
   if (event == OMX_EventCmdComplete) {
     if (data1 == OMX_CommandStateSet) {
@@ -458,7 +347,7 @@ OMX_ERRORTYPE rtmpout_event_handler(
     OMX_OUT OMX_U32 data2,
     OMX_OUT OMX_PTR event_data)
 {
-  appPrivateType *app_priv = (appPrivateType *) app_data;
+  AppPrivateType *app_priv = (AppPrivateType *) app_data;
 
   if (event == OMX_EventCmdComplete) {
     if (data1 == OMX_CommandStateSet) {
@@ -522,7 +411,7 @@ OMX_ERRORTYPE clocksrc_event_handler(
     OMX_OUT OMX_U32 data2,
     OMX_OUT OMX_PTR event_data)
 {
-  appPrivateType *app_priv = (appPrivateType *) app_data;
+  AppPrivateType *app_priv = (AppPrivateType *) app_data;
 
   if (event == OMX_EventCmdComplete) {
     if (data1 == OMX_CommandStateSet) {
@@ -586,7 +475,7 @@ OMX_ERRORTYPE videoschd_event_handler(
     OMX_OUT OMX_U32 data2,
     OMX_OUT OMX_PTR event_data)
 {
-  appPrivateType *app_priv = (appPrivateType *) app_data;
+  AppPrivateType *app_priv = (AppPrivateType *) app_data;
 
   if (event == OMX_EventCmdComplete) {
     if (data1 == OMX_CommandStateSet) {
@@ -648,4 +537,15 @@ OMX_ERRORTYPE videoschd_emptybuffer_done(
     OMX_OUT OMX_BUFFERHEADERTYPE *buffer)
 {
   return OMX_ErrorNone;
+}
+
+static void set_header(OMX_PTR header, OMX_U32 size)
+{
+  OMX_VERSIONTYPE* ver = (OMX_VERSIONTYPE*) ((OMX_U8 *) header + sizeof(OMX_U32));
+  *((OMX_U32*) header) = size;
+
+  ver->s.nVersionMajor = VERSIONMAJOR;
+  ver->s.nVersionMinor = VERSIONMINOR;
+  ver->s.nRevision = VERSIONREVISION;
+  ver->s.nStep = VERSIONSTEP;
 }

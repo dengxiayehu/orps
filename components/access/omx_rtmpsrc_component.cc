@@ -63,19 +63,19 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX
     if (!comp_priv->ports) {
       return OMX_ErrorInsufficientResources;
     }
+  }
 
-    comp_priv->ports[VIDEO_PORT_INDEX] = (omx_base_PortType *) calloc(1, sizeof(omx_base_video_PortType));
-    if (!comp_priv->ports[VIDEO_PORT_INDEX]) {
-      return OMX_ErrorInsufficientResources;
-    }
-    comp_priv->ports[AUDIO_PORT_INDEX] = (omx_base_PortType *) calloc(1, sizeof(omx_base_audio_PortType));
-    if (!comp_priv->ports[AUDIO_PORT_INDEX]) {
-      return OMX_ErrorInsufficientResources;
-    }
-    comp_priv->ports[CLOCK_PORT_INDEX] = (omx_base_PortType *) calloc(1, sizeof(omx_base_clock_PortType));
-    if (!comp_priv->ports[AUDIO_PORT_INDEX]) {
-      return OMX_ErrorInsufficientResources;
-    }
+  comp_priv->ports[VIDEO_PORT_INDEX] = (omx_base_PortType *) calloc(1, sizeof(omx_base_video_PortType));
+  if (!comp_priv->ports[VIDEO_PORT_INDEX]) {
+    return OMX_ErrorInsufficientResources;
+  }
+  comp_priv->ports[AUDIO_PORT_INDEX] = (omx_base_PortType *) calloc(1, sizeof(omx_base_audio_PortType));
+  if (!comp_priv->ports[AUDIO_PORT_INDEX]) {
+    return OMX_ErrorInsufficientResources;
+  }
+  comp_priv->ports[CLOCK_PORT_INDEX] = (omx_base_PortType *) calloc(1, sizeof(omx_base_clock_PortType));
+  if (!comp_priv->ports[AUDIO_PORT_INDEX]) {
+    return OMX_ErrorInsufficientResources;
   }
 
   base_video_port_Constructor(omx_comp, &comp_priv->ports[VIDEO_PORT_INDEX], VIDEO_PORT_INDEX, OMX_FALSE);
