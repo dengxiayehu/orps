@@ -16,6 +16,9 @@
 
 #define DEFAULT_URL_LENGTH  2048
 
+#define VIDEO_BUFFER_SIZE 150000
+#define AUDIO_BUFFER_SIZE 65536
+
 static OMX_U32 rtmpsrc_instance = 0;
 
 static void rtmp_log(int level, const char *fmt, va_list args);
@@ -86,8 +89,8 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX
   port_v = (omx_base_video_PortType *) comp_priv->ports[VIDEO_PORT_INDEX];
   port_a = (omx_base_audio_PortType *) comp_priv->ports[AUDIO_PORT_INDEX];
 
-  port_v->sPortParam.nBufferSize = DEFAULT_OUT_BUFFER_SIZE;
-  port_a->sPortParam.nBufferSize = DEFAULT_OUT_BUFFER_SIZE;
+  port_v->sPortParam.nBufferSize = VIDEO_BUFFER_SIZE;
+  port_a->sPortParam.nBufferSize = AUDIO_BUFFER_SIZE;
 
   comp_priv->BufferMgmtCallback = omx_rtmpsrc_component_BufferMgmtCallback;
   comp_priv->BufferMgmtFunction = omx_base_source_twoport_BufferMgmtFunction;
