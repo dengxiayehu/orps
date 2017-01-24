@@ -19,15 +19,14 @@ extern "C" {
 #include <OMX_Audio.h>
 
 #include <tsemaphore.h>
-#include <user_debug_levels.h>
 
 #define VERSIONMAJOR    1
 #define VERSIONMINOR    1
 #define VERSIONREVISION 0
 #define VERSIONSTEP     0
 
-#define VIDEO_BUFFER_SIZE (80000)
-#define AUDIO_BUFFER_SIZE (40000)
+#define VIDEO_BUFFER_SIZE (65536)
+#define AUDIO_BUFFER_SIZE (65536)
 
 typedef struct appPrivateType {
   OMX_HANDLETYPE rtmpsrchandle;

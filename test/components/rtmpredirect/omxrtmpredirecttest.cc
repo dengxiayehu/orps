@@ -4,6 +4,7 @@
 #include <webrtc/base/physicalsocketserver.h>
 #include <signal.h>
 #include <pthread.h>
+#include <user_debug_levels.h>
 
 #include "omxrtmpredirecttest.h"
 
@@ -81,7 +82,6 @@ static void setHeader(OMX_PTR header, OMX_U32 size)
   ver->s.nStep = VERSIONSTEP;
 }
 
-static OMX_ERRORTYPE test_OMX_ComponentNameEnum(void);
 static OMX_CALLBACKTYPE rtmpsrccallbacks = {
   .EventHandler     = rtmpsrc_event_handler,
   .EmptyBufferDone  = NULL,
@@ -119,42 +119,18 @@ int main(int argc, const char *argv[])
   appPrivateType *app_priv;
   OMX_ERRORTYPE omx_err;
 
-  xlog::log_add_dst("./omxrtmpouttest.log");
+  xlog::log_add_dst("./omxrtmpredirecttest.log");
 
-  int ret = 0;
   sigset_t set;
-
-  // Block SIGINT in main thread and its inheritors.
   sigemptyset(&set);
   sigaddset(&set, SIGINT);
-
-  ret = pthread_sigmask(SIG_BLOCK, &set, NULL);
-  if (ret != 0) {
-    fprintf(stderr, "pthread_sigmask failed: %s\n", strerror(ret));
-    return -1;
-  }
+  pthread_sigmask(SIG_BLOCK, &set, NULL);
 
   app_priv = (appPrivateType *) calloc(1, sizeof(appPrivateType));
   app_priv->rtmpsrc_event_sem = (tsem_t *) malloc(sizeof(tsem_t));
-  if (!app_priv->rtmpsrc_event_sem) {
-    LOGE("malloc for rtmpsrc_event_sem failed: %s", ERRNOMSG);
-    return 1;
-  }
   app_priv->rtmpout_event_sem = (tsem_t *) malloc(sizeof(tsem_t));
-  if (!app_priv->rtmpout_event_sem) {
-    LOGE("malloc for rtmpout_event_sem failed: %s", ERRNOMSG);
-    return 1;
-  }
   app_priv->clocksrc_event_sem = (tsem_t *) malloc(sizeof(tsem_t));
-  if (!app_priv->clocksrc_event_sem) {
-    LOGE("malloc for clocksrc_event_sem failed: %s", ERRNOMSG);
-    return 1;
-  }
   app_priv->videoschd_event_sem = (tsem_t *) malloc(sizeof(tsem_t));
-  if (!app_priv->videoschd_event_sem) {
-    LOGE("malloc for videoschd_event_sem failed: %s", ERRNOMSG);
-    return 1;
-  }
   app_priv->bEOS = OMX_FALSE;
 
   tsem_init(app_priv->rtmpsrc_event_sem, 0);
@@ -167,71 +143,27 @@ int main(int argc, const char *argv[])
   CustomSocketServer socket_server(thread, app_priv);
   thread->set_socketserver(&socket_server);
 
-  // Create a thread to handle the signals.
   SignalProcessThread spt(&set, thread, app_priv);
   spt.Start();
 
   omx_err = OMX_Init();
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("The OpenMAX core can not be initialized. Exiting...");
-    exit(EXIT_FAILURE);
-  }
-  LOGI("Omx core is initialized");
-
-  LOGI("------------------------------------");
-  test_OMX_ComponentNameEnum();
 
   omx_err = OMX_GetHandle(&app_priv->rtmpsrchandle, (OMX_STRING) "OMX.st.rtmpsrc", app_priv, &rtmpsrccallbacks);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Component rtmpsrc not found");
-    exit(1);
-  }
-
   omx_err = OMX_GetHandle(&app_priv->rtmpouthandle, (OMX_STRING) "OMX.st.rtmpout", app_priv, &rtmpoutcallbacks);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Component rtmpout not found");
-    exit(1);
-  }
   omx_err = OMX_GetHandle(&app_priv->clocksrchandle, (OMX_STRING) "OMX.st.clocksrc", app_priv, &clocksrccallbacks);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Component clocksrc not found");
-    exit(1);
-  }
   omx_err = OMX_GetHandle(&app_priv->videoschdhandle, (OMX_STRING) "OMX.st.video.scheduler", app_priv, &videoschdcallbacks);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Component video_schd not found");
-    exit(1);
-  }
 
   OMX_INDEXTYPE omx_index;
+  char url[1024];
   omx_err = OMX_GetExtensionIndex(app_priv->rtmpsrchandle, (OMX_STRING) "OMX.ST.index.param.inputurl",
                                   &omx_index);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Error in rtmpsrc get extension index");
-    exit(1);
-  }
-
-  char url[1024];
   omx_err = OMX_SetParameter(app_priv->rtmpsrchandle, omx_index, (OMX_PTR) "rtmp://127.0.0.1/live/va");
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Error in rtmpsrc set input url");
-    exit(1);
-  }
   OMX_GetParameter(app_priv->rtmpsrchandle, omx_index, url);
   LOGI("Test rtmpsrc url set to: %s\"", url);
 
   omx_err = OMX_GetExtensionIndex(app_priv->rtmpouthandle, (OMX_STRING) "OMX.ST.index.param.outputurl",
                                   &omx_index);
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Error in rtmpout get extension index");
-    exit(1);
-  }
-
   omx_err = OMX_SetParameter(app_priv->rtmpouthandle, omx_index, (OMX_PTR) "rtmp://127.0.0.1/live/xyz");
-  if (omx_err != OMX_ErrorNone) {
-    LOGE("Error in rtmpout set output url");
-    exit(1);
-  }
   OMX_GetParameter(app_priv->rtmpouthandle, omx_index, url);
   LOGI("Test rtmpout url set to: %s\"", url);
 
@@ -242,8 +174,8 @@ int main(int argc, const char *argv[])
   }
   omx_err = OMX_SendCommand(app_priv->clocksrchandle, OMX_CommandPortDisable, 2, NULL);
   if (omx_err != OMX_ErrorNone) {
-    LOGE("Error in disenable port 2 in clocksrc");
-    exit(1);
+   LOGE("Error in disenable port 2 in clocksrc");
+   exit(1);
   }
   tsem_down(app_priv->clocksrc_event_sem);
   tsem_down(app_priv->clocksrc_event_sem);
@@ -452,28 +384,6 @@ int main(int argc, const char *argv[])
 
   xlog::log_close();
   return 0;
-}
-
-static OMX_ERRORTYPE test_OMX_ComponentNameEnum(void)
-{
-  char *name;
-  OMX_U32 index;
-  OMX_ERRORTYPE omx_err = OMX_ErrorNone;
-
-  LOGI("GENERAL TEST");
-  name = (char *) malloc(OMX_MAX_STRINGNAME_SIZE);
-  index = 0;
-  for ( ; ; ) {
-    omx_err = OMX_ComponentNameEnum(name, OMX_MAX_STRINGNAME_SIZE, index);
-    if ((name != NULL) && (omx_err == OMX_ErrorNone)) {
-      LOGI("component %i is %s", index, name);
-    } else break;
-    ++index;
-  }
-  free(name);
-  LOGI("GENERAL TEST result: %s",
-       omx_err == OMX_ErrorNoMore ? "PASS" : "FAILURE");
-  return omx_err;
 }
 
 OMX_ERRORTYPE rtmpsrc_event_handler(
