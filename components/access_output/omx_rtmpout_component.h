@@ -22,7 +22,9 @@ DERIVEDCLASS(omx_rtmpout_component_PrivateType, omx_base_sink_PrivateType)
   RTMP *rtmp; \
   OMX_BOOL rtmp_ready; \
   tsem_t *rtmp_sync_sem; \
-  OMX_BOOL has_starttime[2];
+  OMX_BOOL has_starttime[2]; \
+  OMX_TIME_CLOCKSTATE clock_state; \
+  OMX_S32 xscale;
 ENDCLASS(omx_rtmpout_component_PrivateType)
 
 OMX_ERRORTYPE omx_rtmpout_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX_STRING comp_name);

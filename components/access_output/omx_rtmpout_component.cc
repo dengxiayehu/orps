@@ -20,6 +20,8 @@
 static OMX_U32 rtmpout_instance = 0;
 
 static void rtmp_log(int level, const char *fmt, va_list args);
+static OMX_BOOL omx_rtmpout_component_clockport_handlefunc(
+    omx_rtmpout_component_PrivateType *comp_priv, OMX_BUFFERHEADERTYPE *input_buffer);
 
 OMX_ERRORTYPE omx_rtmpout_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX_STRING comp_name)
 {
@@ -86,7 +88,9 @@ OMX_ERRORTYPE omx_rtmpout_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX
   port_a = (omx_base_audio_PortType *) comp_priv->ports[AUDIO_PORT_INDEX];
 
   port_v->sPortParam.nBufferSize = VIDEO_BUFFER_SIZE;
+  port_v->Port_SendBufferFunction = omx_rtmpout_component_port_SendBufferFunction;
   port_a->sPortParam.nBufferSize = AUDIO_BUFFER_SIZE;
+  port_a->Port_SendBufferFunction = omx_rtmpout_component_port_SendBufferFunction;
 
   comp_priv->BufferMgmtCallback = omx_rtmpout_component_BufferMgmtCallback;
   comp_priv->BufferMgmtFunction = omx_base_sink_twoport_BufferMgmtFunction;
@@ -406,6 +410,156 @@ OMX_ERRORTYPE omx_rtmpout_component_Deinit(OMX_COMPONENTTYPE *omx_comp)
   tsem_reset(comp_priv->rtmp_sync_sem);
 
   return OMX_ErrorNone;
+}
+
+OMX_ERRORTYPE omx_rtmpout_component_port_SendBufferFunction(omx_base_PortType *omx_port, OMX_BUFFERHEADERTYPE *buffer)
+{
+  OMX_ERRORTYPE omx_err = OMX_ErrorNone;
+  OMX_U32 port_index;
+  OMX_COMPONENTTYPE *omx_comp = omx_port->standCompContainer;
+  omx_base_component_PrivateType *base_comp_priv = (omx_base_component_PrivateType*) omx_comp->pComponentPrivate;
+
+  port_index =
+    omx_port->sPortParam.eDir == OMX_DirInput ? buffer->nInputPortIndex : buffer->nOutputPortIndex;
+  if (port_index != omx_port->sPortParam.nPortIndex) {
+    LOGE("Wrong port for this operation port_index=%d nPortIndex=%d",
+         port_index, omx_port->sPortParam.nPortIndex);
+    return OMX_ErrorBadPortIndex;
+  }
+
+  if (base_comp_priv->state == OMX_StateInvalid) {
+    LOGE("We are in OMX_StateInvalid");
+    return OMX_ErrorInvalidState;
+  }
+
+  if (base_comp_priv->state != OMX_StateExecuting &&
+      base_comp_priv->state != OMX_StatePause &&
+      base_comp_priv->state != OMX_StateIdle) {
+    LOGE("We are not in executing/pause/idle state, but in %d", base_comp_priv->state);
+    return OMX_ErrorIncorrectStateOperation;
+  }
+  if ((!PORT_IS_ENABLED(omx_port)) ||
+      (PORT_IS_BEING_DISABLED(omx_port) && !PORT_IS_TUNNELED_N_BUFFER_SUPPLIER(omx_port)) ||
+      (base_comp_priv->transientState == OMX_TransStateExecutingToIdle &&
+       (PORT_IS_TUNNELED(omx_port) && !PORT_IS_BUFFER_SUPPLIER(omx_port)))) {
+    LOGE("Port %u is disabled comp = %s", port_index, base_comp_priv->name);
+    return OMX_ErrorIncorrectStateOperation;
+  }
+
+  if ((omx_err = checkHeader(buffer, sizeof(OMX_BUFFERHEADERTYPE))) != OMX_ErrorNone) {
+    LOGE("Received wrong buffer header on input port %u", port_index);
+    return omx_err;
+  }
+
+  omx_base_clock_PortType *clock_port =
+    (omx_base_clock_PortType *) base_comp_priv->ports[2];
+  OMX_BOOL send_frame = OMX_FALSE;
+  if (PORT_IS_TUNNELED(clock_port) && !PORT_IS_BEING_FLUSHED(omx_port) &&
+      (base_comp_priv->transientState != OMX_TransStateExecutingToIdle) &&
+      (buffer->nFlags != OMX_BUFFERFLAG_EOS)) {
+    send_frame = omx_rtmpout_component_clockport_handlefunc((omx_rtmpout_component_PrivateType *) base_comp_priv, buffer);
+    if (!send_frame) {
+      buffer->nFilledLen = 0;
+    }
+  }
+
+  if (!PORT_IS_BEING_FLUSHED(omx_port) && !(PORT_IS_BEING_DISABLED(omx_port) && PORT_IS_TUNNELED_N_BUFFER_SUPPLIER(omx_port))) {
+    queue(omx_port->pBufferQueue, buffer);
+    tsem_up(omx_port->pBufferSem);
+    tsem_up(base_comp_priv->bMgmtSem);
+  } else if (PORT_IS_BUFFER_SUPPLIER(omx_port)) {
+    queue(omx_port->pBufferQueue, buffer);
+    tsem_up(omx_port->pBufferSem);
+  } else {
+    LOGE("Error gets here");
+    return OMX_ErrorIncorrectStateOperation;
+  }
+  return omx_err;
+}
+
+static OMX_BOOL omx_rtmpout_component_clockport_handlefunc(
+    omx_rtmpout_component_PrivateType *comp_priv, OMX_BUFFERHEADERTYPE *input_buffer)
+{
+  omx_base_video_PortType *video_port = (omx_base_video_PortType *) comp_priv->ports[VIDEO_PORT_INDEX];
+  omx_base_audio_PortType *audio_port = (omx_base_audio_PortType *) comp_priv->ports[AUDIO_PORT_INDEX];
+  omx_base_clock_PortType *clock_port = (omx_base_clock_PortType *) comp_priv->ports[CLOCK_PORT_INDEX];
+  OMX_HANDLETYPE hclkcomponent = clock_port->hTunneledComponent;
+  OMX_ERRORTYPE omx_err;
+
+  if (input_buffer->nFlags == OMX_BUFFERFLAG_STARTTIME) {
+    input_buffer->nFlags = 0;
+    comp_priv->has_starttime[input_buffer->nInputPortIndex] = OMX_TRUE;
+    if (comp_priv->has_starttime[VIDEO_PORT_INDEX] && comp_priv->has_starttime[AUDIO_PORT_INDEX]) {
+      OMX_TIME_CONFIG_TIMESTAMPTYPE client_timestamp;
+
+      setHeader(&client_timestamp, sizeof(OMX_TIME_CONFIG_TIMESTAMPTYPE));
+      client_timestamp.nPortIndex = clock_port->nTunneledPort;
+      client_timestamp.nTimestamp = input_buffer->nTimeStamp;;
+      omx_err = OMX_SetConfig(hclkcomponent, OMX_IndexConfigTimeClientStartTime, &client_timestamp);
+      if (omx_err != OMX_ErrorNone) {
+        LOGE("Error in OMX_SetConfig OMX_IndexConfigTimeClientStartTime");
+        return OMX_FALSE;
+      }
+
+      if (!PORT_IS_BEING_FLUSHED(video_port) &&
+          !PORT_IS_BEING_FLUSHED(audio_port) &&
+          !PORT_IS_BEING_FLUSHED(clock_port)) {
+        tsem_down(clock_port->pBufferSem);
+
+        if (clock_port->pBufferQueue->nelem > 0) {
+          OMX_BUFFERHEADERTYPE *clock_buffer = (OMX_BUFFERHEADERTYPE *) dequeue(clock_port->pBufferQueue);
+          OMX_TIME_MEDIATIMETYPE *media_time = (OMX_TIME_MEDIATIMETYPE *) clock_buffer->pBuffer;
+          comp_priv->clock_state = media_time->eState;
+          comp_priv->xscale = media_time->xScale;
+          clock_port->ReturnBufferFunction((omx_base_PortType *) clock_port, clock_buffer);
+        }
+      }
+    }
+  }
+
+  if (!(comp_priv->clock_state == OMX_TIME_ClockStateRunning && (comp_priv->xscale>>16) == 1)) {
+    input_buffer->nFilledLen = 0;
+    return OMX_FALSE;
+  }
+
+  OMX_BOOL send_frame = OMX_FALSE;
+
+  if (!PORT_IS_BEING_FLUSHED(video_port) &&
+      !PORT_IS_BEING_FLUSHED(audio_port) &&
+      !PORT_IS_BEING_FLUSHED(clock_port) &&
+      comp_priv->transientState != OMX_TransStateExecutingToIdle) {
+    clock_port->sMediaTimeRequest.nOffset = 100;
+    clock_port->sMediaTimeRequest.nPortIndex = clock_port->nTunneledPort;
+    clock_port->sMediaTimeRequest.pClientPrivate = NULL;
+    clock_port->sMediaTimeRequest.nMediaTimestamp = input_buffer->nTimeStamp;
+    omx_err = OMX_SetConfig(hclkcomponent, OMX_IndexConfigTimeMediaTimeRequest, &clock_port->sMediaTimeRequest);
+    if (omx_err != OMX_ErrorNone) {
+      LOGE("Error in OMX_SetConfig OMX_IndexConfigTimeMediaTimeRequest");
+      return OMX_FALSE;
+    }
+    if (!PORT_IS_BEING_FLUSHED(video_port) &&
+        !PORT_IS_BEING_FLUSHED(audio_port) &&
+        !PORT_IS_BEING_FLUSHED(clock_port) &&
+        comp_priv->transientState != OMX_TransStateExecutingToIdle) {
+      tsem_down(clock_port->pBufferSem);
+      if (clock_port->pBufferQueue->nelem > 0) {
+        OMX_BUFFERHEADERTYPE *clock_buffer = (OMX_BUFFERHEADERTYPE *) dequeue(clock_port->pBufferQueue);
+        OMX_TIME_MEDIATIMETYPE *media_time = (OMX_TIME_MEDIATIMETYPE *) clock_buffer->pBuffer;
+        if (media_time->eUpdateType == OMX_TIME_UpdateScaleChanged) {
+          comp_priv->xscale = media_time->xScale;
+        } else if (media_time->eUpdateType == OMX_TIME_UpdateRequestFulfillment) {
+          if (media_time->nOffset > 0) {
+            send_frame = OMX_TRUE;
+          } else {
+            send_frame = OMX_FALSE;
+          }
+        }
+        clock_port->ReturnBufferFunction((omx_base_PortType *) clock_port, clock_buffer);
+      }
+    }
+  }
+
+  return send_frame;
 }
 
 static void rtmp_log(int level, const char *fmt, va_list args)

@@ -18,8 +18,10 @@ extern "C" {
 typedef struct AppPrivateType {
   OMX_HANDLETYPE rtmpsrchandle;
   OMX_HANDLETYPE rtmpouthandle;
+  OMX_HANDLETYPE clocksrchandle;
   tsem_t *rtmpsrc_event_sem;
   tsem_t *rtmpout_event_sem;
+  tsem_t *clocksrc_event_sem;
   OMX_BOOL bEOS;
 } AppPrivateType;
 
@@ -31,11 +33,6 @@ OMX_ERRORTYPE rtmpsrc_event_handler(
     OMX_OUT OMX_U32 data2,
     OMX_OUT OMX_PTR event_data);
 
-OMX_ERRORTYPE rtmpsrc_fillbuffer_done(
-    OMX_OUT OMX_HANDLETYPE hcomp,
-    OMX_OUT OMX_PTR app_data,
-    OMX_OUT OMX_BUFFERHEADERTYPE *buffer);
-
 OMX_ERRORTYPE rtmpout_event_handler(
     OMX_OUT OMX_HANDLETYPE hcomp,
     OMX_OUT OMX_PTR app_data,
@@ -44,10 +41,13 @@ OMX_ERRORTYPE rtmpout_event_handler(
     OMX_OUT OMX_U32 data2,
     OMX_OUT OMX_PTR event_data);
 
-OMX_ERRORTYPE rtmpout_emptybuffer_done(
+OMX_ERRORTYPE clocksrc_event_handler(
     OMX_OUT OMX_HANDLETYPE hcomp,
     OMX_OUT OMX_PTR app_data,
-    OMX_OUT OMX_BUFFERHEADERTYPE *buffer);
+    OMX_OUT OMX_EVENTTYPE event,
+    OMX_OUT OMX_U32 data1,
+    OMX_OUT OMX_U32 data2,
+    OMX_OUT OMX_PTR event_data);
 
 #ifdef __cplusplus
 }
