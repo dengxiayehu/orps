@@ -10,7 +10,6 @@
 
 static OMX_CALLBACKTYPE rtmpsrccallbacks = { rtmpsrc_event_handler, NULL, NULL };
 static OMX_CALLBACKTYPE rtmpoutcallbacks = { rtmpout_event_handler, NULL, NULL };
-static OMX_CALLBACKTYPE clocksrccallbacks = { clocksrc_event_handler, NULL, NULL };
 
 static void set_header(OMX_PTR header, OMX_U32 size);
 
@@ -92,12 +91,10 @@ int main(int argc, const char *argv[])
   app_priv = (AppPrivateType *) calloc(1, sizeof(AppPrivateType));
   app_priv->rtmpsrc_event_sem = (tsem_t *) malloc(sizeof(tsem_t));
   app_priv->rtmpout_event_sem = (tsem_t *) malloc(sizeof(tsem_t));
-  app_priv->clocksrc_event_sem = (tsem_t *) malloc(sizeof(tsem_t));
   app_priv->bEOS = OMX_FALSE;
 
   tsem_init(app_priv->rtmpsrc_event_sem, 0);
   tsem_init(app_priv->rtmpout_event_sem, 0);
-  tsem_init(app_priv->clocksrc_event_sem, 0);
 
   rtc::AutoThread auto_thread;
   rtc::Thread *thread = rtc::Thread::Current();
@@ -111,7 +108,6 @@ int main(int argc, const char *argv[])
 
   omx_err = OMX_GetHandle(&app_priv->rtmpsrchandle, (OMX_STRING) "OMX.st.rtmpsrc", app_priv, &rtmpsrccallbacks);
   omx_err = OMX_GetHandle(&app_priv->rtmpouthandle, (OMX_STRING) "OMX.st.rtmpout", app_priv, &rtmpoutcallbacks);
-  omx_err = OMX_GetHandle(&app_priv->clocksrchandle, (OMX_STRING) "OMX.st.clocksrc", app_priv, &clocksrccallbacks);
 
   OMX_INDEXTYPE omx_index;
   char url[1024];
@@ -127,15 +123,6 @@ int main(int argc, const char *argv[])
   OMX_GetParameter(app_priv->rtmpouthandle, omx_index, url);
   LOGI("Test rtmpout url set to: %s\"", url);
 
-  omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandPortEnable, 2, NULL);
-  tsem_down(app_priv->rtmpsrc_event_sem);
-  omx_err = OMX_SendCommand(app_priv->rtmpouthandle, OMX_CommandPortEnable, 2, NULL);
-  tsem_down(app_priv->rtmpout_event_sem);
-  omx_err = OMX_SendCommand(app_priv->clocksrchandle, OMX_CommandPortDisable, 2, NULL);
-  tsem_down(app_priv->clocksrc_event_sem);
-
-  omx_err = OMX_SetupTunnel(app_priv->clocksrchandle, 0, app_priv->rtmpsrchandle, 2);
-  omx_err = OMX_SetupTunnel(app_priv->clocksrchandle, 1, app_priv->rtmpouthandle, 2);
   omx_err = OMX_SetupTunnel(app_priv->rtmpsrchandle, 0, app_priv->rtmpouthandle, 0);
   omx_err = OMX_SetupTunnel(app_priv->rtmpsrchandle, 1, app_priv->rtmpouthandle, 1);
 
@@ -151,35 +138,17 @@ int main(int argc, const char *argv[])
 
   omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
   omx_err = OMX_SendCommand(app_priv->rtmpouthandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
-  omx_err = OMX_SendCommand(app_priv->clocksrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
   tsem_down(app_priv->rtmpsrc_event_sem);
   LOGI("Rtmpsrc in idle state");
   tsem_down(app_priv->rtmpout_event_sem);
   LOGI("Rtmpout in idle state");
-  tsem_down(app_priv->clocksrc_event_sem);
-  LOGI("Clocksrc in idle state");
-
-  OMX_TIME_CONFIG_ACTIVEREFCLOCKTYPE ref_clock;
-  set_header(&ref_clock, sizeof(OMX_TIME_CONFIG_ACTIVEREFCLOCKTYPE));
-  ref_clock.eClock = OMX_TIME_RefClockAudio;
-  omx_err = OMX_SetConfig(app_priv->clocksrchandle, OMX_IndexConfigTimeActiveRefClock, &ref_clock);
-
-  OMX_TIME_CONFIG_CLOCKSTATETYPE clock_state;
-  set_header(&clock_state, sizeof(OMX_TIME_CONFIG_CLOCKSTATETYPE));
-  omx_err = OMX_GetConfig(app_priv->clocksrchandle, OMX_IndexConfigTimeClockState, &clock_state);
-  clock_state.nWaitMask = OMX_CLOCKPORT1;
-  clock_state.eState = OMX_TIME_ClockStateWaitingForStartTime;
-  omx_err = OMX_SetConfig(app_priv->clocksrchandle, OMX_IndexConfigTimeClockState, &clock_state);
 
   omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateExecuting, NULL);
   omx_err = OMX_SendCommand(app_priv->rtmpouthandle, OMX_CommandStateSet, OMX_StateExecuting, NULL);
-  omx_err = OMX_SendCommand(app_priv->clocksrchandle, OMX_CommandStateSet, OMX_StateExecuting, NULL);
   tsem_down(app_priv->rtmpsrc_event_sem);
   LOGI("Rtmpsrc in executing state");
   tsem_down(app_priv->rtmpout_event_sem);
   LOGI("Rtmpout in executing state");
-  tsem_down(app_priv->clocksrc_event_sem);
-  LOGI("Clocksrc in executing state");
 
   LOGI("Pipeline running ..");
   thread->Run();
@@ -188,36 +157,27 @@ int main(int argc, const char *argv[])
 
   omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
   omx_err = OMX_SendCommand(app_priv->rtmpouthandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
-  omx_err = OMX_SendCommand(app_priv->clocksrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
   tsem_down(app_priv->rtmpsrc_event_sem);
   LOGI("Rtmpsrc in idle state");
   tsem_down(app_priv->rtmpout_event_sem);
   LOGI("Rtmpout in idle state");
-  tsem_down(app_priv->clocksrc_event_sem);
-  LOGI("Clocksrc in idle state");
 
   omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateLoaded, NULL);
   omx_err = OMX_SendCommand(app_priv->rtmpouthandle, OMX_CommandStateSet, OMX_StateLoaded, NULL);
-  omx_err = OMX_SendCommand(app_priv->clocksrchandle, OMX_CommandStateSet, OMX_StateLoaded, NULL);
   tsem_down(app_priv->rtmpsrc_event_sem);
   LOGI("Rtmpsrc in loaded state");
   tsem_down(app_priv->rtmpout_event_sem);
   LOGI("Rtmpout in loaded state");
-  tsem_down(app_priv->clocksrc_event_sem);
-  LOGI("Clocksrc in loaded state");
 
   OMX_FreeHandle(app_priv->rtmpsrchandle);
   OMX_FreeHandle(app_priv->rtmpouthandle);
-  OMX_FreeHandle(app_priv->clocksrchandle);
 
   OMX_Deinit();
 
   tsem_reset(app_priv->rtmpsrc_event_sem);
   tsem_reset(app_priv->rtmpout_event_sem);
-  tsem_reset(app_priv->clocksrc_event_sem);
   SAFE_FREE(app_priv->rtmpsrc_event_sem);
   SAFE_FREE(app_priv->rtmpout_event_sem);
-  SAFE_FREE(app_priv->clocksrc_event_sem);
 
   free(app_priv);
   app_priv = NULL;
@@ -335,62 +295,6 @@ OMX_ERRORTYPE rtmpout_event_handler(
     LOGE("Rtmpout received error event, data1=%x, data2=%d", data1, data2);
   } else {
     LOGI("Rtmpout event=%x, data1=%u, data2=%u", event, data1, data2);
-  }
-  return OMX_ErrorNone;
-}
-
-OMX_ERRORTYPE clocksrc_event_handler(
-    OMX_OUT OMX_HANDLETYPE hcomp,
-    OMX_OUT OMX_PTR app_data,
-    OMX_OUT OMX_EVENTTYPE event,
-    OMX_OUT OMX_U32 data1,
-    OMX_OUT OMX_U32 data2,
-    OMX_OUT OMX_PTR event_data)
-{
-  AppPrivateType *app_priv = (AppPrivateType *) app_data;
-
-  if (event == OMX_EventCmdComplete) {
-    if (data1 == OMX_CommandStateSet) {
-      switch ((int) data2) {
-      case OMX_StateInvalid:
-        LOGI("Clocksrc state changed in OMX_StateInvalid");
-        break;
-      case OMX_StateLoaded:
-        LOGI("Clocksrc state changed in OMX_StateLoaded");
-        break;
-      case OMX_StateIdle:
-        LOGI("Clocksrc state changed in OMX_StateIdle");
-        break;
-      case OMX_StateExecuting:
-        LOGI("Clocksrc state changed in OMX_StateExecuting");
-        break;
-      case OMX_StatePause:
-        LOGI("Clocksrc state changed in OMX_StatePause");
-        break;
-      case OMX_StateWaitForResources:
-        LOGI("Clocksrc state changed in OMX_StateWaitForResources");
-        break;
-      }
-      tsem_up(app_priv->clocksrc_event_sem);
-    } else if (data1 == OMX_CommandPortEnable) {
-      LOGI("Clocksrc received port enable event");
-      tsem_up(app_priv->clocksrc_event_sem);
-    } else if (data1 == OMX_CommandPortDisable) {
-      LOGI("Clocksrc received port disable event");
-      tsem_up(app_priv->clocksrc_event_sem);
-    } else if (data1 == OMX_CommandFlush) {
-      LOGI("Clocksrc received flush event");
-      tsem_up(app_priv->clocksrc_event_sem);
-    } else {
-      LOGI("Clocksrc received event event=%d data1=%u data2=%u", event, data1, data2);
-    }
-  } else if (event == OMX_EventPortSettingsChanged) {
-  } else if (event == OMX_EventPortFormatDetected) {
-    LOGI("Clocksrc port format detected %x", (int) data1);
-  } else if (event == OMX_EventError) {
-    LOGE("Clocksrc received error event, data1=%x, data2=%d", data1, data2);
-  } else {
-    LOGI("Clocksrc event=%x, data1=%u, data2=%u", event, data1, data2);
   }
   return OMX_ErrorNone;
 }
