@@ -29,7 +29,6 @@ OMX_ERRORTYPE omx_rtmpout_component_Destructor(OMX_COMPONENTTYPE *omx_comp);
 OMX_ERRORTYPE omx_rtmpout_component_MessageHandler(OMX_COMPONENTTYPE *omx_comp, internalRequestMessageType *message);
 OMX_ERRORTYPE omx_rtmpout_component_Init(OMX_COMPONENTTYPE *omx_comp);
 OMX_ERRORTYPE omx_rtmpout_component_Deinit(OMX_COMPONENTTYPE *omx_comp);
-OMX_ERRORTYPE omx_rtmpout_component_port_SendBufferFunction(omx_base_PortType *omx_port, OMX_BUFFERHEADERTYPE *buffer);
 
 void omx_rtmpout_component_BufferMgmtCallback(
     OMX_COMPONENTTYPE *omx_comp,

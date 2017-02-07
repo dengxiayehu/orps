@@ -18,6 +18,8 @@
 static OMX_U32 rtmpout_instance = 0;
 
 static void rtmp_log(int level, const char *fmt, va_list args);
+static int handle_video(OMX_COMPONENTTYPE *omx_comp, OMX_BUFFERHEADERTYPE *input_buffer);
+static int handle_audio(OMX_COMPONENTTYPE *omx_comp, OMX_BUFFERHEADERTYPE *input_buffer);
 
 OMX_ERRORTYPE omx_rtmpout_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX_STRING comp_name)
 {
@@ -76,9 +78,7 @@ OMX_ERRORTYPE omx_rtmpout_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX
   port_a = (omx_base_audio_PortType *) comp_priv->ports[AUDIO_PORT_INDEX];
 
   port_v->sPortParam.nBufferSize = VIDEO_BUFFER_SIZE;
-  port_v->Port_SendBufferFunction = omx_rtmpout_component_port_SendBufferFunction;
   port_a->sPortParam.nBufferSize = AUDIO_BUFFER_SIZE;
-  port_a->Port_SendBufferFunction = omx_rtmpout_component_port_SendBufferFunction;
 
   comp_priv->BufferMgmtCallback = omx_rtmpout_component_BufferMgmtCallback;
   comp_priv->BufferMgmtFunction = omx_base_sink_twoport_BufferMgmtFunction;
@@ -156,10 +156,14 @@ void omx_rtmpout_component_BufferMgmtCallback(
   }
 
   OMX_U32 port_index = input_buffer->nInputPortIndex;
+  int ret = 0;
   if (port_index == VIDEO_PORT_INDEX) {
-    LOGD("Got video frame");
+    ret = handle_video(omx_comp, input_buffer);
   } else if (port_index == AUDIO_PORT_INDEX) {
-    LOGD("Got audio frame");
+    ret = handle_audio(omx_comp, input_buffer);
+  }
+  if (ret < 0) {
+    LOGE("Handle %s buffer failed", port_index == VIDEO_PORT_INDEX ? "video" : "audio");
   }
 
   input_buffer->nFilledLen = 0;
@@ -180,8 +184,17 @@ OMX_ERRORTYPE omx_rtmpout_component_MessageHandler(OMX_COMPONENTTYPE *omx_comp, 
   if (message->messageType == OMX_CommandStateSet) {
     if ((message->messageParam == OMX_StateExecuting) && (old_state == OMX_StateIdle)) {
       omx_err = omx_rtmpout_component_Init(omx_comp);
+      if (omx_err != OMX_ErrorNone) {
+        LOGE("Rtmpout init failed, error=%x", omx_err);
+        (*(comp_priv->callbacks->EventHandler))(omx_comp, comp_priv->callbackData, OMX_EventError, omx_err, 0, NULL);
+        return omx_err;
+      }
     } else if ((message->messageParam == OMX_StateIdle) && (old_state == OMX_StateExecuting)) {
       omx_err = omx_rtmpout_component_Deinit(omx_comp);
+      if (omx_err != OMX_ErrorNone) {
+        LOGE("Rtmpout deinit failed, error=%x", omx_err);
+        return omx_err;
+      }
     }
   }
 
@@ -397,65 +410,6 @@ OMX_ERRORTYPE omx_rtmpout_component_Deinit(OMX_COMPONENTTYPE *omx_comp)
   return OMX_ErrorNone;
 }
 
-OMX_ERRORTYPE omx_rtmpout_component_port_SendBufferFunction(omx_base_PortType *omx_port, OMX_BUFFERHEADERTYPE *buffer)
-{
-  OMX_ERRORTYPE omx_err = OMX_ErrorNone;
-  OMX_U32 port_index;
-  OMX_COMPONENTTYPE *omx_comp = omx_port->standCompContainer;
-  omx_base_component_PrivateType *base_comp_priv = (omx_base_component_PrivateType*) omx_comp->pComponentPrivate;
-
-  port_index =
-    omx_port->sPortParam.eDir == OMX_DirInput ? buffer->nInputPortIndex : buffer->nOutputPortIndex;
-  if (port_index != omx_port->sPortParam.nPortIndex) {
-    LOGE("Wrong port for this operation port_index=%d nPortIndex=%d",
-         port_index, omx_port->sPortParam.nPortIndex);
-    return OMX_ErrorBadPortIndex;
-  }
-
-  if (base_comp_priv->state == OMX_StateInvalid) {
-    LOGE("We are in OMX_StateInvalid");
-    return OMX_ErrorInvalidState;
-  }
-
-  if (base_comp_priv->state != OMX_StateExecuting &&
-      base_comp_priv->state != OMX_StatePause &&
-      base_comp_priv->state != OMX_StateIdle) {
-    LOGE("We are not in executing/pause/idle state, but in %d", base_comp_priv->state);
-    return OMX_ErrorIncorrectStateOperation;
-  }
-  if ((!PORT_IS_ENABLED(omx_port)) ||
-      (PORT_IS_BEING_DISABLED(omx_port) && !PORT_IS_TUNNELED_N_BUFFER_SUPPLIER(omx_port)) ||
-      (base_comp_priv->transientState == OMX_TransStateExecutingToIdle &&
-       (PORT_IS_TUNNELED(omx_port) && !PORT_IS_BUFFER_SUPPLIER(omx_port)))) {
-    LOGE("Port %u is disabled comp = %s", port_index, base_comp_priv->name);
-    return OMX_ErrorIncorrectStateOperation;
-  }
-
-  if ((omx_err = checkHeader(buffer, sizeof(OMX_BUFFERHEADERTYPE))) != OMX_ErrorNone) {
-    LOGE("Received wrong buffer header on input port %u", port_index);
-    return omx_err;
-  }
-
-  if (PORT_IS_TUNNELED(omx_port) && !PORT_IS_BEING_FLUSHED(omx_port) &&
-      (base_comp_priv->transientState != OMX_TransStateExecutingToIdle) &&
-      (buffer->nFlags != OMX_BUFFERFLAG_EOS)) {
-    LOGE("Get frame!");
-  }
-
-  if (!PORT_IS_BEING_FLUSHED(omx_port) && !(PORT_IS_BEING_DISABLED(omx_port) && PORT_IS_TUNNELED_N_BUFFER_SUPPLIER(omx_port))) {
-    queue(omx_port->pBufferQueue, buffer);
-    tsem_up(omx_port->pBufferSem);
-    tsem_up(base_comp_priv->bMgmtSem);
-  } else if (PORT_IS_BUFFER_SUPPLIER(omx_port)) {
-    queue(omx_port->pBufferQueue, buffer);
-    tsem_up(omx_port->pBufferSem);
-  } else {
-    LOGE("Error gets here");
-    return OMX_ErrorIncorrectStateOperation;
-  }
-  return omx_err;
-}
-
 static void rtmp_log(int level, const char *fmt, va_list args)
 {
   if (level == RTMP_LOGDEBUG2)
@@ -475,4 +429,16 @@ static void rtmp_log(int level, const char *fmt, va_list args)
   }
 
   xlog::log_print("rtmpout", "unknown", -1, (xlog::log_level) level, buf);
+}
+
+static int handle_video(OMX_COMPONENTTYPE *omx_comp, OMX_BUFFERHEADERTYPE *input_buffer)
+{
+  // Pack video to rtmpserver
+  return 0;
+}
+
+static int handle_audio(OMX_COMPONENTTYPE *omx_comp, OMX_BUFFERHEADERTYPE *input_buffer)
+{
+  // Pack audio to rtmpserver
+  return 0;
 }

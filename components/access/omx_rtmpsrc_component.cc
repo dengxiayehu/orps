@@ -477,24 +477,26 @@ OMX_ERRORTYPE omx_rtmpsrc_component_MessageHandler(OMX_COMPONENTTYPE *omx_comp, 
   OMX_STATETYPE oldState = comp_priv->state;
 
   omx_err = omx_base_component_MessageHandler(omx_comp, message);
+  if (omx_err != OMX_ErrorNone) {
+    return omx_err;
+  }
 
   if (message->messageType == OMX_CommandStateSet) {
     if ((message->messageParam == OMX_StateExecuting) && (oldState == OMX_StateIdle)) {
       omx_err = omx_rtmpsrc_component_Init(omx_comp);
       if (omx_err != OMX_ErrorNone) {
-        LOGE("Rtmpsrc Init failed Error=%x", omx_err);
+        LOGE("Rtmpsrc init failed, error=%x", omx_err);
         (*(comp_priv->callbacks->EventHandler))(omx_comp, comp_priv->callbackData, OMX_EventError, omx_err, 0, NULL);
         return omx_err;
       }
     } else if ((message->messageParam == OMX_StateIdle) && (oldState == OMX_StateExecuting)) {
       omx_err = omx_rtmpsrc_component_Deinit(omx_comp);
       if (omx_err != OMX_ErrorNone) {
-        LOGE("Rtmpsrc Deinit failed Error=%x", omx_err);
+        LOGE("Rtmpsrc deinit failed, error=%x", omx_err);
         return omx_err;
       }
     }
   }
-
   return omx_err;
 }
 

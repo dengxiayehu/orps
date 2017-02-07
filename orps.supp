@@ -1,5 +1,5 @@
 {
-   std::string leak warning
+   std::string leak warning supp
    Memcheck:Leak
    match-leak-kinds: possible
    fun:_Znwm
@@ -14,4 +14,34 @@
    fun:_ZN3rtc6ThreadC1EPNS_12SocketServerE
    fun:_ZN3rtc13ThreadManager17WrapCurrentThreadEv
    fun:_ZN3rtc13ThreadManagerC1Ev
+}
+{
+   rtmpout rtmp ssl leak warning supp
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:CRYPTO_malloc
+   fun:SSL_CTX_new
+   fun:RTMP_TLS_Init
+   fun:RTMP_Init
+   fun:_Z26omx_rtmpout_component_InitP17OMX_COMPONENTTYPE
+   fun:_Z36omx_rtmpout_component_MessageHandlerP17OMX_COMPONENTTYPEP26internalRequestMessageType
+   fun:compMessageHandlerFunction
+   fun:start_thread
+   fun:clone
+}
+{
+   rtmpsrc rtmp ssl leak warning supp
+   Memcheck:Leak
+   match-leak-kinds: definite
+   fun:malloc
+   fun:CRYPTO_malloc
+   fun:SSL_CTX_new
+   fun:RTMP_TLS_Init
+   fun:RTMP_Init
+   fun:omx_rtmpsrc_component_Init
+   fun:omx_rtmpsrc_component_MessageHandler
+   fun:compMessageHandlerFunction
+   fun:start_thread
+   fun:clone
 }
