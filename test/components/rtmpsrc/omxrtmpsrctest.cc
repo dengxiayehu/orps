@@ -1,5 +1,6 @@
 #include <xlog.h>
 #include <xmacro.h>
+#include <omx_util.h>
 #include <webrtc/base/thread.h>
 #include <webrtc/base/physicalsocketserver.h>
 #include <signal.h>
@@ -76,6 +77,7 @@ static OMX_CALLBACKTYPE rtmpsrccallbacks = {
   .EmptyBufferDone  = NULL,
   .FillBufferDone   = rtmpsrcFillBufferDone
 };
+static SignalProcessThread *spt;
 
 int main(int argc, const char *argv[])
 {
@@ -110,8 +112,8 @@ int main(int argc, const char *argv[])
   thread->set_socketserver(&socket_server);
 
   // Create a thread to handle the signals.
-  SignalProcessThread spt(&set, thread, app_priv);
-  spt.Start();
+  spt = new SignalProcessThread(&set, thread, app_priv);
+  spt->Start();
 
   omx_err = OMX_Init();
   if (omx_err != OMX_ErrorNone) {
@@ -177,6 +179,8 @@ int main(int argc, const char *argv[])
   thread->Run();
 
   thread->set_socketserver(NULL);
+  spt->Stop();
+  delete spt;
 
   omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
   if (omx_err != OMX_ErrorNone) {
@@ -225,8 +229,7 @@ static OMX_ERRORTYPE test_OMX_ComponentNameEnum(void)
     ++index;
   }
   free(name);
-  LOGI("GENERAL TEST result: %s",
-       omx_err == OMX_ErrorNoMore ? "PASS" : "FAILURE");
+  LOGI("GENERAL TEST result: %s", omx_err == OMX_ErrorNoMore ? "PASS" : "FAILURE");
   return omx_err;
 }
 
@@ -241,47 +244,16 @@ OMX_ERRORTYPE rtmpsrcEventHandler(
   appPrivateType *app_priv = (appPrivateType *) pAppData;
 
   if (eEvent == OMX_EventCmdComplete) {
+    LOGI("Rtmpsrc received command: %s", STR(omx_common::str_omx_command((OMX_COMMANDTYPE) Data1)));
     if (Data1 == OMX_CommandStateSet) {
-      switch ((int) Data2) {
-      case OMX_StateInvalid:
-        LOGI("Rtmpsrc state changed in OMX_StateInvalid");
-        break;
-      case OMX_StateLoaded:
-        LOGI("Rtmpsrc state changed in OMX_StateLoaded");
-        break;
-      case OMX_StateIdle:
-        LOGI("Rtmpsrc state changed in OMX_StateIdle");
-        break;
-      case OMX_StateExecuting:
-        LOGI("Rtmpsrc state changed in OMX_StateExecuting");
-        break;
-      case OMX_StatePause:
-        LOGI("Rtmpsrc state changed in OMX_StatePause");
-        break;
-      case OMX_StateWaitForResources:
-        LOGI("Rtmpsrc state changed in OMX_StateWaitForResources");
-        break;
-      }
+      LOGI("Rtmpsrc state changed in: %s", STR(omx_common::str_omx_state((OMX_STATETYPE) Data2)));
       tsem_up(app_priv->rtmpsrcEventSem);
-    } else if (Data1 == OMX_CommandPortEnable) {
-      LOGI("Received port enable event");
-      tsem_up(app_priv->rtmpsrcEventSem);
-    } else if (Data1 == OMX_CommandPortDisable) {
-      LOGI("Received port disable event");
-      tsem_up(app_priv->rtmpsrcEventSem);
-    } else if (Data1 == OMX_CommandFlush) {
-      LOGI("Received flush event");
-      tsem_up(app_priv->rtmpsrcEventSem);
-    } else {
-      LOGI("Received event event=%d data1=%u data2=%u", eEvent, Data1, Data2);
     }
-  } else if (eEvent == OMX_EventPortSettingsChanged) {
-  } else if (eEvent == OMX_EventPortFormatDetected) {
-    LOGI("Port format detected %x", (int) Data1);
   } else if (eEvent == OMX_EventError) {
     LOGE("Received error event, data1=%x, data2=%d", Data1, Data2);
+    pthread_kill(spt->GetPThread(), SIGINT);
   } else {
-    LOGI("eEvent=%x, data1=%u, data2=%u", eEvent, Data1, Data2);
+    LOGE("eEvent=%x, data1=%u, data2=%u not handled", eEvent, Data1, Data2);
   }
   return OMX_ErrorNone;
 }

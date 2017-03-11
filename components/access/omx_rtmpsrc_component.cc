@@ -77,7 +77,7 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX
     return OMX_ErrorInsufficientResources;
   }
   comp_priv->ports[CLOCK_PORT_INDEX] = (omx_base_PortType *) calloc(1, sizeof(omx_base_clock_PortType));
-  if (!comp_priv->ports[AUDIO_PORT_INDEX]) {
+  if (!comp_priv->ports[CLOCK_PORT_INDEX]) {
     return OMX_ErrorInsufficientResources;
   }
 
@@ -172,17 +172,17 @@ void omx_rtmpsrc_component_BufferMgmtCallback(OMX_COMPONENTTYPE *omx_comp, OMX_B
   RTMPPacket packet = { 0 };
 
   temp_buffer = comp_priv->tmp_output_buffer;
+  output_buffer->nFilledLen = 0;
+  output_buffer->nOffset = 0;
 
   if (!comp_priv->rtmp_ready) {
-    if (comp_priv->state == OMX_StateExecuting) {
+    if (comp_priv->state == OMX_StateExecuting &&
+        comp_priv->rtmp && RTMP_IsConnected(comp_priv->rtmp)) {
       tsem_down(comp_priv->rtmp_sync_sem);
     } else {
       return;
     }
   }
-
-  output_buffer->nFilledLen = 0;
-  output_buffer->nOffset = 0;
 
   omx_base_clock_PortType *clock_port = (omx_base_clock_PortType *) comp_priv->ports[CLOCK_PORT_INDEX];
   if (clock_port->pBufferSem->semval > 0) {
@@ -554,11 +554,10 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Init(OMX_COMPONENTTYPE *omx_comp)
   }
 
   LOGI("Rtmpsrc for url \"%s\" initialized", comp_priv->input_url);
-
   comp_priv->rtmp_ready = OMX_TRUE;
-  tsem_up(comp_priv->rtmp_sync_sem);
 
 out:
+  tsem_up(comp_priv->rtmp_sync_sem);
   SAFE_FREE(parsed_playpath.av_val);
   return ret == TRUE ? OMX_ErrorNone : OMX_ErrorBadParameter;
 }

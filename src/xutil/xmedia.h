@@ -1,8 +1,8 @@
 #ifndef _XMEDIA_H_
 #define _XMEDIA_H_
 
-#include <xtype.h>
-#include <get_bits.h>
+#include "xtype.h"
+#include "get_bits.h"
 
 #define AAC_ADTS_HEADER_SIZE 7
 
