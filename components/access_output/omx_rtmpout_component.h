@@ -9,8 +9,9 @@ extern "C" {
 #include <OMX_Component.h>
 #include <OMX_Core.h>
 #include <omx_base_sink.h>
-
 #include <librtmp/rtmp.h>
+#include <xmedia.h>
+#include <xutil.h>
 
 #define RTMPOUT_COMP_NAME "OMX.st.rtmpout"
 #define RTMPOUT_COMP_ROLE "rtmpout"
@@ -21,6 +22,9 @@ DERIVEDCLASS(omx_rtmpout_component_PrivateType, omx_base_sink_PrivateType)
   OMX_STRING output_url; \
   RTMP *rtmp; \
   OMX_BOOL rtmp_ready; \
+  xmedia::AVCDecorderConfigurationRecord *avc_dcr; \
+  xmedia::AudioSpecificConfig *asc; \
+  xutil::MemHolder *mholder; \
   tsem_t *rtmp_sync_sem;
 ENDCLASS(omx_rtmpout_component_PrivateType)
 

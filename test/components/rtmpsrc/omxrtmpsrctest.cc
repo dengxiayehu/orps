@@ -4,13 +4,15 @@
 #include <webrtc/base/thread.h>
 #include <webrtc/base/physicalsocketserver.h>
 #include <signal.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <pthread.h>
 
 #include "omxrtmpsrctest.h"
 
 class CustomSocketServer : public rtc::PhysicalSocketServer {
 public:
-  CustomSocketServer(rtc::Thread *thread, appPrivateType *app_priv)
+  CustomSocketServer(rtc::Thread *thread, AppPrivateType *app_priv)
     : thread_(thread), app_priv_(app_priv) { }
   virtual ~CustomSocketServer() { }
 
@@ -23,12 +25,12 @@ public:
 
 protected:
   rtc::Thread *thread_;
-  appPrivateType *app_priv_;
+  AppPrivateType *app_priv_;
 };
 
 class SignalProcessThread : public rtc::Thread {
 public:
-  SignalProcessThread(sigset_t *set, Thread *main_thread, appPrivateType *app_priv)
+  SignalProcessThread(sigset_t *set, Thread *main_thread, AppPrivateType *app_priv)
     : set_(set), main_thread_(main_thread), app_priv_(app_priv) { }
   virtual ~SignalProcessThread() { }
   virtual void Run();
@@ -36,19 +38,19 @@ public:
 private:
   sigset_t *set_;
   Thread *main_thread_;
-  appPrivateType *app_priv_;
+  AppPrivateType *app_priv_;
 };
 
 class FunctorQuit {
 public:
-  explicit FunctorQuit(appPrivateType *app_priv)
+  explicit FunctorQuit(AppPrivateType *app_priv)
     : app_priv_(app_priv) { }
   void operator()() {
     app_priv_->bEOS = OMX_TRUE;
   }
 
 private:
-  appPrivateType *app_priv_;
+  AppPrivateType *app_priv_;
 };
 
 void SignalProcessThread::Run()
@@ -77,11 +79,10 @@ static OMX_CALLBACKTYPE rtmpsrccallbacks = {
   .EmptyBufferDone  = NULL,
   .FillBufferDone   = rtmpsrcFillBufferDone
 };
-static SignalProcessThread *spt;
 
 int main(int argc, const char *argv[])
 {
-  appPrivateType *app_priv;
+  AppPrivateType *app_priv;
   OMX_ERRORTYPE omx_err;
   OMX_INDEXTYPE index_parm_url;
 
@@ -100,11 +101,11 @@ int main(int argc, const char *argv[])
     return -1;
   }
 
-  app_priv = (appPrivateType *) malloc(sizeof(appPrivateType));
-  app_priv->rtmpsrcEventSem = (tsem_t *) malloc(sizeof(tsem_t));
+  app_priv = (AppPrivateType *) malloc(sizeof(AppPrivateType));
+  app_priv->rtmpsrc_event_sem = (tsem_t *) malloc(sizeof(tsem_t));
   app_priv->bEOS = OMX_FALSE;
 
-  tsem_init(app_priv->rtmpsrcEventSem, 0);
+  tsem_init(app_priv->rtmpsrc_event_sem, 0);
 
   rtc::AutoThread auto_thread;
   rtc::Thread *thread = rtc::Thread::Current();
@@ -112,8 +113,8 @@ int main(int argc, const char *argv[])
   thread->set_socketserver(&socket_server);
 
   // Create a thread to handle the signals.
-  spt = new SignalProcessThread(&set, thread, app_priv);
-  spt->Start();
+  SignalProcessThread spt(&set, thread, app_priv);
+  spt.Start();
 
   omx_err = OMX_Init();
   if (omx_err != OMX_ErrorNone) {
@@ -159,7 +160,7 @@ int main(int argc, const char *argv[])
   omx_err = OMX_AllocateBuffer(app_priv->rtmpsrchandle, &app_priv->outBufferRtmpsrcVideo[1], 0, app_priv, BUFFER_OUT_SIZE);
   omx_err = OMX_AllocateBuffer(app_priv->rtmpsrchandle, &app_priv->outBufferRtmpsrcAudio[0], 1, app_priv, BUFFER_OUT_SIZE);
   omx_err = OMX_AllocateBuffer(app_priv->rtmpsrchandle, &app_priv->outBufferRtmpsrcAudio[1], 1, app_priv, BUFFER_OUT_SIZE);
-  tsem_down(app_priv->rtmpsrcEventSem);
+  tsem_down(app_priv->rtmpsrc_event_sem);
   LOGI("Rtmpsrc in idle state");
 
   omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateExecuting, NULL);
@@ -167,7 +168,7 @@ int main(int argc, const char *argv[])
     LOGE("Rtmpsrc set to executing failed");
     exit(1);
   }
-  tsem_down(app_priv->rtmpsrcEventSem);
+  tsem_down(app_priv->rtmpsrc_event_sem);
   LOGI("Rtmpsrc in executing state");
 
   omx_err = OMX_FillThisBuffer(app_priv->rtmpsrchandle, app_priv->outBufferRtmpsrcVideo[0]);
@@ -179,15 +180,13 @@ int main(int argc, const char *argv[])
   thread->Run();
 
   thread->set_socketserver(NULL);
-  spt->Stop();
-  delete spt;
 
   omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateIdle, NULL);
   if (omx_err != OMX_ErrorNone) {
     LOGE("Rtmpsrc set to idle failed");
     exit(1);
   }
-  tsem_down(app_priv->rtmpsrcEventSem);
+  tsem_down(app_priv->rtmpsrc_event_sem);
   LOGI("Rtmpsrc in idle state");
 
   omx_err = OMX_SendCommand(app_priv->rtmpsrchandle, OMX_CommandStateSet, OMX_StateLoaded, NULL);
@@ -195,19 +194,20 @@ int main(int argc, const char *argv[])
   omx_err = OMX_FreeBuffer(app_priv->rtmpsrchandle, 0, app_priv->outBufferRtmpsrcVideo[1]);
   omx_err = OMX_FreeBuffer(app_priv->rtmpsrchandle, 1, app_priv->outBufferRtmpsrcAudio[0]);
   omx_err = OMX_FreeBuffer(app_priv->rtmpsrchandle, 1, app_priv->outBufferRtmpsrcAudio[1]);
-  tsem_down(app_priv->rtmpsrcEventSem);
+  tsem_down(app_priv->rtmpsrc_event_sem);
   LOGI("Rtmpsrc in loaded state");
 
   OMX_FreeHandle(app_priv->rtmpsrchandle);
 
   OMX_Deinit();
 
-  free(app_priv->rtmpsrcEventSem);
-  app_priv->rtmpsrcEventSem = NULL;
+  free(app_priv->rtmpsrc_event_sem);
+  app_priv->rtmpsrc_event_sem = NULL;
 
   free(app_priv);
   app_priv = NULL;
 
+  spt.Stop();
   xlog::log_close();
   return 0;
 }
@@ -241,17 +241,17 @@ OMX_ERRORTYPE rtmpsrcEventHandler(
     OMX_OUT OMX_U32 Data2,
     OMX_OUT OMX_PTR pEventData)
 {
-  appPrivateType *app_priv = (appPrivateType *) pAppData;
+  AppPrivateType *app_priv = (AppPrivateType *) pAppData;
 
   if (eEvent == OMX_EventCmdComplete) {
     LOGI("Rtmpsrc received command: %s", STR(omx_common::str_omx_command((OMX_COMMANDTYPE) Data1)));
     if (Data1 == OMX_CommandStateSet) {
       LOGI("Rtmpsrc state changed in: %s", STR(omx_common::str_omx_state((OMX_STATETYPE) Data2)));
-      tsem_up(app_priv->rtmpsrcEventSem);
+      tsem_up(app_priv->rtmpsrc_event_sem);
     }
   } else if (eEvent == OMX_EventError) {
     LOGE("Received error event, data1=%x, data2=%d", Data1, Data2);
-    pthread_kill(spt->GetPThread(), SIGINT);
+    kill(getpid(), SIGINT);
   } else {
     LOGE("eEvent=%x, data1=%u, data2=%u not handled", eEvent, Data1, Data2);
   }
@@ -263,7 +263,7 @@ OMX_ERRORTYPE rtmpsrcFillBufferDone(
     OMX_OUT OMX_PTR pAppData,
     OMX_OUT OMX_BUFFERHEADERTYPE* pBuffer)
 {
-  appPrivateType *app_priv = (appPrivateType *) pAppData;
+  AppPrivateType *app_priv = (AppPrivateType *) pAppData;
   OMX_ERRORTYPE omx_err;
 
   if (pBuffer != NULL) {

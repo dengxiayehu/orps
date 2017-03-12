@@ -6,6 +6,7 @@
 
 #include <webrtc/base/bitbuffer.h>
 #include <orps_config.h>
+#include <rtmp_util.h>
 #include <xamf.h>
 #include <xmedia.h>
 #include <xlog.h>
@@ -20,8 +21,6 @@
 #define AUDIO_BUFFER_SIZE 65536
 
 static OMX_U32 rtmpsrc_instance = 0;
-
-static void rtmp_log(int level, const char *fmt, va_list args);
 
 OMX_ERRORTYPE omx_rtmpsrc_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX_STRING comp_name)
 {
@@ -174,6 +173,7 @@ void omx_rtmpsrc_component_BufferMgmtCallback(OMX_COMPONENTTYPE *omx_comp, OMX_B
   temp_buffer = comp_priv->tmp_output_buffer;
   output_buffer->nFilledLen = 0;
   output_buffer->nOffset = 0;
+  output_buffer->nFlags = 0;
 
   if (!comp_priv->rtmp_ready) {
     if (comp_priv->state == OMX_StateExecuting &&
@@ -195,7 +195,7 @@ void omx_rtmpsrc_component_BufferMgmtCallback(OMX_COMPONENTTYPE *omx_comp, OMX_B
 
 #define BAIL_RETURN do { \
   RTMPPacket_Free(&packet); \
-  output_buffer->nFlags = OMX_BUFFERFLAG_EOS; \
+  output_buffer->nFlags |= OMX_BUFFERFLAG_EOS; \
   return; \
 } while (0)
 
@@ -204,7 +204,7 @@ again:
     if (!comp_priv->rtmp->m_bPlaying ||
         !RTMP_IsConnected(comp_priv->rtmp) ||
         !RTMP_ReadPacket(comp_priv->rtmp, &packet)) {
-      output_buffer->nFlags = OMX_BUFFERFLAG_EOS;
+      output_buffer->nFlags |= OMX_BUFFERFLAG_EOS;
     } else {
       OMX_BUFFERHEADERTYPE *dst_buffer = NULL;
 
@@ -217,7 +217,8 @@ again:
         size_t byte_offset, bit_offset;
 
         if (packet.m_packetType == RTMP_PACKET_TYPE_VIDEO) {
-          bitbuffer.ConsumeBits(4); // skip frame_type
+          uint32_t frame_type;
+          bitbuffer.ReadBits(&frame_type, 4);
           uint32_t codec_id;
           bitbuffer.ReadBits(&codec_id, 4);
           if (codec_id != 7) {
@@ -242,15 +243,18 @@ again:
           if (avc_pkt_type == 0 /* AVC sequence header */) {
             memcpy(dst_buffer->pBuffer, data, data_size);
             dst_buffer->nFilledLen = data_size;
-            dst_buffer->nFlags = OMX_BUFFERFLAG_CODECCONFIG;
+            dst_buffer->nFlags |= OMX_BUFFERFLAG_CODECCONFIG;
           } else if (avc_pkt_type == 1 /* AVC NALU */) {
             if (dst_buffer->nAllocLen >= data_size) {
+              if (frame_type == 1) {
+                dst_buffer->nFlags |= OMX_BUFFERFLAG_KEY_FRAME;
+              }
               memcpy(dst_buffer->pBuffer, data, data_size);
               dst_buffer->nFilledLen = data_size;
               dst_buffer->nTimeStamp = packet.m_nTimeStamp * 1000;
               if (!comp_priv->first_timestamp_flag[0]) {
                 comp_priv->first_timestamp_flag[0] = OMX_TRUE;
-                dst_buffer->nFlags = OMX_BUFFERFLAG_STARTTIME;
+                dst_buffer->nFlags |= OMX_BUFFERFLAG_STARTTIME;
               }
             } else {
               LOGE("Buffer size=%d less than pkt size=%d buffer=%p port_index=%d",
@@ -300,14 +304,14 @@ again:
                                    xmedia::str_to_audioprof("LC"), xmedia::str_to_samplerate_idx("44100"), 2);
               dst_buffer->nFilledLen = 2;
             }
-            dst_buffer->nFlags = OMX_BUFFERFLAG_CODECCONFIG;
+            dst_buffer->nFlags |= OMX_BUFFERFLAG_CODECCONFIG;
           } else if (aac_packet_type == 1 /* AAC raw */) {
             memcpy(dst_buffer->pBuffer, data, data_size);
             dst_buffer->nFilledLen = data_size;
             dst_buffer->nTimeStamp = packet.m_nTimeStamp * 1000;
             if (!comp_priv->first_timestamp_flag[1]) {
               comp_priv->first_timestamp_flag[1] = OMX_TRUE;
-              dst_buffer->nFlags = OMX_BUFFERFLAG_STARTTIME;
+              dst_buffer->nFlags |= OMX_BUFFERFLAG_STARTTIME;
             }
           } else {
             LOGE("Unknown aac_packet_type(%d) for url \"%s\"", aac_packet_type, comp_priv->input_url);
@@ -514,7 +518,7 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Init(OMX_COMPONENTTYPE *omx_comp)
   comp_priv->rtmp->Link.timeout = RTMP_SOCK_TIMEOUT;
 
   RTMP_LogSetLevel(RTMP_LOGLEVEL);
-  RTMP_LogSetCallback(rtmp_log);
+  RTMP_LogSetCallback(rtmp_common::rtmp_log);
 
   AVal parsed_host, parsed_app, parsed_playpath;
   unsigned int parsed_port = 0;
@@ -557,6 +561,9 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Init(OMX_COMPONENTTYPE *omx_comp)
   comp_priv->rtmp_ready = OMX_TRUE;
 
 out:
+  if (!comp_priv->rtmp_ready) {
+    RTMP_Close(comp_priv->rtmp);
+  }
   tsem_up(comp_priv->rtmp_sync_sem);
   SAFE_FREE(parsed_playpath.av_val);
   return ret == TRUE ? OMX_ErrorNone : OMX_ErrorBadParameter;
@@ -567,8 +574,9 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Deinit(OMX_COMPONENTTYPE *omx_comp)
   omx_rtmpsrc_component_PrivateType *comp_priv = (omx_rtmpsrc_component_PrivateType *) omx_comp->pComponentPrivate;
 
   if (comp_priv->rtmp) {
-    if (RTMP_IsConnected(comp_priv->rtmp))
+    if (RTMP_IsConnected(comp_priv->rtmp)) {
       LOGI("Disconnect from url \"%s\"", comp_priv->input_url);
+    }
     RTMP_Close(comp_priv->rtmp);
     RTMP_Free(comp_priv->rtmp);
     comp_priv->rtmp = NULL;
@@ -578,25 +586,4 @@ OMX_ERRORTYPE omx_rtmpsrc_component_Deinit(OMX_COMPONENTTYPE *omx_comp)
   tsem_reset(comp_priv->rtmp_sync_sem);
 
   return OMX_ErrorNone;
-}
-
-static void rtmp_log(int level, const char *fmt, va_list args)
-{
-  if (level == RTMP_LOGDEBUG2)
-    return;
-
-  char buf[4096];
-  vsnprintf(buf, sizeof(buf)-1, fmt, args);
-
-  switch (level) {
-    case RTMP_LOGCRIT: 
-    case RTMP_LOGERROR:   level = xlog::ERR;  break;
-    case RTMP_LOGWARNING: level = xlog::WARN; break;
-    case RTMP_LOGINFO:    level = xlog::INFO; break;
-    case RTMP_LOGDEBUG:
-    case RTMP_LOGDEBUG2:
-    default:              level = xlog::DEBUG;break;
-  }
-
-  xlog::log_print("rtmpsrc", "unknown", -1, (xlog::log_level) level, buf);
 }

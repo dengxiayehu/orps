@@ -28,12 +28,12 @@ extern "C" {
 
 #define BUFFER_OUT_SIZE (640*480*3)
 
-typedef struct appPrivateType {
-  tsem_t *rtmpsrcEventSem;
+typedef struct AppPrivateType {
+  tsem_t *rtmpsrc_event_sem;
   OMX_HANDLETYPE rtmpsrchandle;
   OMX_BUFFERHEADERTYPE *outBufferRtmpsrcVideo[2], *outBufferRtmpsrcAudio[2];
   OMX_BOOL bEOS;
-} appPrivateType;
+} AppPrivateType;
 
 OMX_ERRORTYPE rtmpsrcEventHandler(
     OMX_OUT OMX_HANDLETYPE hComponent,

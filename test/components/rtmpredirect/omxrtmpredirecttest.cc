@@ -1,8 +1,11 @@
 #include <xlog.h>
 #include <xmacro.h>
+#include <omx_util.h>
 #include <webrtc/base/thread.h>
 #include <webrtc/base/physicalsocketserver.h>
 #include <signal.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <pthread.h>
 #include <user_debug_levels.h>
 
@@ -183,6 +186,7 @@ int main(int argc, const char *argv[])
   app_priv = NULL;
   UNUSED(omx_err);
 
+  spt.Stop();
   xlog::log_close();
   return 0;
 }
@@ -198,47 +202,16 @@ OMX_ERRORTYPE rtmpsrc_event_handler(
   AppPrivateType *app_priv = (AppPrivateType *) app_data;
 
   if (event == OMX_EventCmdComplete) {
+    LOGI("Rtmpsrc received command: %s", STR(omx_common::str_omx_command((OMX_COMMANDTYPE) data1)));
     if (data1 == OMX_CommandStateSet) {
-      switch ((int) data2) {
-      case OMX_StateInvalid:
-        LOGI("Rtmpsrc state changed in OMX_StateInvalid");
-        break;
-      case OMX_StateLoaded:
-        LOGI("Rtmpsrc state changed in OMX_StateLoaded");
-        break;
-      case OMX_StateIdle:
-        LOGI("Rtmpsrc state changed in OMX_StateIdle");
-        break;
-      case OMX_StateExecuting:
-        LOGI("Rtmpsrc state changed in OMX_StateExecuting");
-        break;
-      case OMX_StatePause:
-        LOGI("Rtmpsrc state changed in OMX_StatePause");
-        break;
-      case OMX_StateWaitForResources:
-        LOGI("Rtmpsrc state changed in OMX_StateWaitForResources");
-        break;
-      }
+      LOGI("Rtmpsrc state changed in: %s", STR(omx_common::str_omx_state((OMX_STATETYPE) data2)));
       tsem_up(app_priv->rtmpsrc_event_sem);
-    } else if (data1 == OMX_CommandPortEnable) {
-      LOGI("Rtmpsrc received port enable event");
-      tsem_up(app_priv->rtmpsrc_event_sem);
-    } else if (data1 == OMX_CommandPortDisable) {
-      LOGI("Rtmpsrc received port disable event");
-      tsem_up(app_priv->rtmpsrc_event_sem);
-    } else if (data1 == OMX_CommandFlush) {
-      LOGI("Rtmpsrc received flush event");
-      tsem_up(app_priv->rtmpsrc_event_sem);
-    } else {
-      LOGI("Rtmpsrc received event event=%d data1=%u data2=%u", event, data1, data2);
     }
-  } else if (event == OMX_EventPortSettingsChanged) {
-  } else if (event == OMX_EventPortFormatDetected) {
-    LOGI("Rtmpsrc port format detected %x", (int) data1);
   } else if (event == OMX_EventError) {
-    LOGE("Rtmpsrc received error event, data1=%x, data2=%d", data1, data2);
+    LOGE("Received error event, data1=%x, data2=%d", data1, data2);
+    kill(getpid(), SIGINT);
   } else {
-    LOGI("Rtmpsrc event=%x, data1=%u, data2=%u", event, data1, data2);
+    LOGE("event=%x, data1=%u, data2=%u not handled", event, data1, data2);
   }
   return OMX_ErrorNone;
 }
@@ -254,47 +227,16 @@ OMX_ERRORTYPE rtmpout_event_handler(
   AppPrivateType *app_priv = (AppPrivateType *) app_data;
 
   if (event == OMX_EventCmdComplete) {
+    LOGI("Rtmpout received command: %s", STR(omx_common::str_omx_command((OMX_COMMANDTYPE) data1)));
     if (data1 == OMX_CommandStateSet) {
-      switch ((int) data2) {
-      case OMX_StateInvalid:
-        LOGI("Rtmpout state changed in OMX_StateInvalid");
-        break;
-      case OMX_StateLoaded:
-        LOGI("Rtmpout state changed in OMX_StateLoaded");
-        break;
-      case OMX_StateIdle:
-        LOGI("Rtmpout state changed in OMX_StateIdle");
-        break;
-      case OMX_StateExecuting:
-        LOGI("Rtmpout state changed in OMX_StateExecuting");
-        break;
-      case OMX_StatePause:
-        LOGI("Rtmpout state changed in OMX_StatePause");
-        break;
-      case OMX_StateWaitForResources:
-        LOGI("Rtmpout state changed in OMX_StateWaitForResources");
-        break;
-      }
+      LOGI("Rtmpout state changed in: %s", STR(omx_common::str_omx_state((OMX_STATETYPE) data2)));
       tsem_up(app_priv->rtmpout_event_sem);
-    } else if (data1 == OMX_CommandPortEnable) {
-      LOGI("Rtmpout received port enable event");
-      tsem_up(app_priv->rtmpout_event_sem);
-    } else if (data1 == OMX_CommandPortDisable) {
-      LOGI("Rtmpout received port disable event");
-      tsem_up(app_priv->rtmpout_event_sem);
-    } else if (data1 == OMX_CommandFlush) {
-      LOGI("Rtmpout received flush event");
-      tsem_up(app_priv->rtmpout_event_sem);
-    } else {
-      LOGI("Rtmpout received event event=%d data1=%u data2=%u", event, data1, data2);
     }
-  } else if (event == OMX_EventPortSettingsChanged) {
-  } else if (event == OMX_EventPortFormatDetected) {
-    LOGI("Rtmpout port format detected %x", (int) data1);
   } else if (event == OMX_EventError) {
-    LOGE("Rtmpout received error event, data1=%x, data2=%d", data1, data2);
+    LOGE("Received error event, data1=%x, data2=%d", data1, data2);
+    kill(getpid(), SIGINT);
   } else {
-    LOGI("Rtmpout event=%x, data1=%u, data2=%u", event, data1, data2);
+    LOGE("event=%x, data1=%u, data2=%u not handled", event, data1, data2);
   }
   return OMX_ErrorNone;
 }

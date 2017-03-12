@@ -5,7 +5,7 @@
 #include <OMX_Core.h>
 
 namespace omx_common {
-  
+ 
 std::string str_omx_state(OMX_STATETYPE omx_state);
 std::string str_omx_command(OMX_COMMANDTYPE omx_command);
 

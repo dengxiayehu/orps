@@ -4,6 +4,7 @@
 #include <omx_rtmpout_component.h>
 
 #include <orps_config.h>
+#include <rtmp_util.h>
 #include <xmacro.h>
 #include <xlog.h>
 
@@ -15,11 +16,20 @@
 #define VIDEO_BUFFER_SIZE 150000
 #define AUDIO_BUFFER_SIZE 65536
 
+#define VIDEO_BODY_HEADER_LENGTH    16
+#define VIDEO_PAYLOAD_OFFSET        5
+
+#define XDEBUG 1
+
 static OMX_U32 rtmpout_instance = 0;
 
-static void rtmp_log(int level, const char *fmt, va_list args);
 static int handle_video(OMX_COMPONENTTYPE *omx_comp, OMX_BUFFERHEADERTYPE *input_buffer);
 static int handle_audio(OMX_COMPONENTTYPE *omx_comp, OMX_BUFFERHEADERTYPE *input_buffer);
+static int make_avc_dcr_body(OMX_U8 *buf, const OMX_U8 *sps, OMX_U32 sps_length, const OMX_U8 *pps, OMX_U32 pps_length);
+static int make_video_body(OMX_U8 *buf, OMX_U32 dat_len, int key_frame, OMX_U32 composition_time);
+static int make_asc_body(const OMX_U8 asc[], OMX_U8 buf[], uint32_t len);
+static int make_audio_body(const OMX_U8 *dat, uint32_t dat_len, OMX_U8 buf[], uint32_t len);
+static bool send_rtmp_pkt(OMX_COMPONENTTYPE *omx_comp, int pkttype, uint32_t ts, const OMX_U8 *buf, uint32_t pktsize);
 
 OMX_ERRORTYPE omx_rtmpout_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX_STRING comp_name)
 {
@@ -110,6 +120,10 @@ OMX_ERRORTYPE omx_rtmpout_component_Constructor(OMX_COMPONENTTYPE *omx_comp, OMX
     tsem_init(comp_priv->rtmp_sync_sem, 0);
   }
 
+  comp_priv->avc_dcr = new xmedia::AVCDecorderConfigurationRecord;
+  comp_priv->asc = new xmedia::AudioSpecificConfig;
+  comp_priv->mholder = new xutil::MemHolder;
+
   return omx_err;
 }
 
@@ -117,6 +131,10 @@ OMX_ERRORTYPE omx_rtmpout_component_Destructor(OMX_COMPONENTTYPE *omx_comp)
 {
   omx_rtmpout_component_PrivateType *comp_priv = (omx_rtmpout_component_PrivateType *) omx_comp->pComponentPrivate;
   OMX_U32 i;
+
+  SAFE_DELETE(comp_priv->avc_dcr);
+  SAFE_DELETE(comp_priv->asc);
+  SAFE_DELETE(comp_priv->mholder);
 
   if (comp_priv->rtmp_sync_sem) {
     tsem_deinit(comp_priv->rtmp_sync_sem);
@@ -148,7 +166,8 @@ void omx_rtmpout_component_BufferMgmtCallback(
   omx_rtmpout_component_PrivateType *comp_priv = (omx_rtmpout_component_PrivateType *) omx_comp->pComponentPrivate;
 
   if (!comp_priv->rtmp_ready) {
-    if (comp_priv->state == OMX_StateExecuting) {
+    if (comp_priv->state == OMX_StateExecuting &&
+        comp_priv->rtmp && RTMP_IsConnected(comp_priv->rtmp)) {
       tsem_down(comp_priv->rtmp_sync_sem);
     } else {
       return;
@@ -168,6 +187,7 @@ void omx_rtmpout_component_BufferMgmtCallback(
 
   input_buffer->nFilledLen = 0;
   input_buffer->nOffset = 0;
+  input_buffer->nFlags = 0;
 }
 
 OMX_ERRORTYPE omx_rtmpout_component_MessageHandler(OMX_COMPONENTTYPE *omx_comp, internalRequestMessageType *message)
@@ -366,7 +386,7 @@ OMX_ERRORTYPE omx_rtmpout_component_Init(OMX_COMPONENTTYPE *omx_comp)
   comp_priv->rtmp->Link.timeout = RTMP_SOCK_TIMEOUT;
 
   RTMP_LogSetLevel(RTMP_LOGLEVEL);
-  RTMP_LogSetCallback(rtmp_log);
+  RTMP_LogSetCallback(rtmp_common::rtmp_log);
 
   if (!(ret = RTMP_SetupURL(comp_priv->rtmp, comp_priv->output_url))) {
     LOGE("RTMP_SetupURL failed for url \"%s\"", comp_priv->output_url);
@@ -385,10 +405,14 @@ OMX_ERRORTYPE omx_rtmpout_component_Init(OMX_COMPONENTTYPE *omx_comp)
     goto out;
   }
 
+  LOGI("Rtmpout for url \"%s\" initialized", comp_priv->output_url);
   comp_priv->rtmp_ready = OMX_TRUE;
-  tsem_up(comp_priv->rtmp_sync_sem);
 
 out:
+  if (!comp_priv->rtmp_ready) {
+    RTMP_Close(comp_priv->rtmp);
+  }
+  tsem_up(comp_priv->rtmp_sync_sem);
   return ret ? OMX_ErrorNone : OMX_ErrorBadParameter;
 }
 
@@ -410,35 +434,158 @@ OMX_ERRORTYPE omx_rtmpout_component_Deinit(OMX_COMPONENTTYPE *omx_comp)
   return OMX_ErrorNone;
 }
 
-static void rtmp_log(int level, const char *fmt, va_list args)
-{
-  if (level == RTMP_LOGDEBUG2)
-    return;
-
-  char buf[4096];
-  vsnprintf(buf, sizeof(buf)-1, fmt, args);
-
-  switch (level) {
-    case RTMP_LOGCRIT:
-    case RTMP_LOGERROR:   level = xlog::ERR;  break;
-    case RTMP_LOGWARNING: level = xlog::WARN; break;
-    case RTMP_LOGINFO:    level = xlog::INFO; break;
-    case RTMP_LOGDEBUG:
-    case RTMP_LOGDEBUG2:
-    default:              level = xlog::DEBUG;break;
-  }
-
-  xlog::log_print("rtmpout", "unknown", -1, (xlog::log_level) level, buf);
-}
-
 static int handle_video(OMX_COMPONENTTYPE *omx_comp, OMX_BUFFERHEADERTYPE *input_buffer)
 {
-  // Pack video to rtmpserver
+  omx_rtmpout_component_PrivateType *comp_priv = (omx_rtmpout_component_PrivateType *) omx_comp->pComponentPrivate;
+
+  if (input_buffer->nFlags&OMX_BUFFERFLAG_CODECCONFIG) {
+    if (comp_priv->avc_dcr->parse_from(input_buffer->pBuffer, input_buffer->nFilledLen) < 0)
+      return -1;
+    OMX_U8 avc_dcr_body[2048];
+    int len = make_avc_dcr_body(avc_dcr_body,
+                                comp_priv->avc_dcr->sps, comp_priv->avc_dcr->sps_length,
+                                comp_priv->avc_dcr->pps, comp_priv->avc_dcr->pps_length);
+#if defined(XDEBUG) && (XDEBUG != 0)
+    print_avc_dcr(*comp_priv->avc_dcr);
+    LOGD("Send avc_dcr, timestamp=%u, len=%d", 0, len);
+#endif
+    if (!send_rtmp_pkt(omx_comp, RTMP_PACKET_TYPE_VIDEO, 0, avc_dcr_body, len)) {
+      LOGE("Send avc_dcr to rtmpserver failed");
+      return -1;
+    }
+  } else {
+    OMX_U8 *buf =
+      (OMX_U8 *) comp_priv->mholder->alloc(input_buffer->nFilledLen + VIDEO_BODY_HEADER_LENGTH);
+    memcpy(buf + VIDEO_PAYLOAD_OFFSET, input_buffer->pBuffer, input_buffer->nFilledLen);
+    int len = make_video_body(buf, VIDEO_PAYLOAD_OFFSET + input_buffer->nFilledLen,
+                              input_buffer->nFlags&OMX_BUFFERFLAG_KEY_FRAME, 0);
+#if defined(XDEBUG) && (XDEBUG != 0)
+    LOGD("Send video data, timestamp=%u, len=%d, is_key=%s (nflags=%x)", input_buffer->nTimeStamp/1000, len, input_buffer->nFlags&OMX_BUFFERFLAG_KEY_FRAME ? "yes" : "no", input_buffer->nFlags);
+#endif
+    if (!send_rtmp_pkt(omx_comp, RTMP_PACKET_TYPE_VIDEO,
+                       input_buffer->nTimeStamp/1000, buf, len)) {
+      LOGE("Send video data to rtmpserver failed");
+      return -1;
+    }
+  }
   return 0;
 }
 
 static int handle_audio(OMX_COMPONENTTYPE *omx_comp, OMX_BUFFERHEADERTYPE *input_buffer)
 {
-  // Pack audio to rtmpserver
+  omx_rtmpout_component_PrivateType *comp_priv = (omx_rtmpout_component_PrivateType *) omx_comp->pComponentPrivate;
+
+  if (input_buffer->nFlags&OMX_BUFFERFLAG_CODECCONFIG) {
+    if (input_buffer->nFilledLen != 2) {
+      LOGW("AudioSpecificConfig's length is %d, not the desired 2, truncated", input_buffer->nFilledLen);
+    }
+    memcpy(comp_priv->asc->dat, input_buffer->pBuffer, 2);
+
+    OMX_U8 asc_body[4];
+    make_asc_body(comp_priv->asc->dat, asc_body, sizeof(asc_body));
+#if defined(XDEBUG) && (XDEBUG != 0)
+    xmedia::print_asc(*comp_priv->asc);
+    LOGD("Send asc, timestamp=%u, 0x%x 0x%x 0x%x 0x%x", 0, asc_body[0], asc_body[1], asc_body[2], asc_body[3]);
+#endif
+    if (!send_rtmp_pkt(omx_comp, RTMP_PACKET_TYPE_AUDIO, 0, asc_body, 4)) {
+      LOGE("Send asc to rtmpserver failed");
+      return -1;
+    }
+  } else {
+    OMX_U8 *buf = (OMX_U8 *) comp_priv->mholder->alloc(input_buffer->nFilledLen + 2);
+    int len = make_audio_body(input_buffer->pBuffer, input_buffer->nFilledLen, buf, input_buffer->nFilledLen + 2);
+#if defined(XDEBUG) && (XDEBUG != 0)
+    LOGD("Send audio data, timestamp=%u", input_buffer->nTimeStamp/1000);
+#endif
+    if (!send_rtmp_pkt(omx_comp, RTMP_PACKET_TYPE_AUDIO,
+                       input_buffer->nTimeStamp/1000, buf, len)) {
+      LOGE("Send audio data to rtmpserver failed");
+      return -1;
+    }
+  }
   return 0;
+}
+
+static int make_avc_dcr_body(OMX_U8 *buf, const OMX_U8 *sps, OMX_U32 sps_length, const OMX_U8 *pps, OMX_U32 pps_length)
+{
+  OMX_U32 idx = 0;
+
+  buf[idx++] = 0x17;
+
+  buf[idx++] = 0x00;
+
+  xutil::put_be24(buf + idx, 0);
+  idx += 3;
+
+  buf[idx++] = 0x01;
+  buf[idx++] = sps[1];
+  buf[idx++] = sps[2];
+  buf[idx++] = sps[3];
+  buf[idx++] = 0xFF;
+  buf[idx++] = 0xE1;
+  buf[idx++] = (OMX_U8) ((sps_length>>8)&0xFF);
+  buf[idx++] = (OMX_U8) (sps_length&0xFF);
+  memcpy(buf+idx, sps, sps_length);
+  idx += sps_length;
+
+  buf[idx++] = 0x01;
+  buf[idx++] = (OMX_U8) ((pps_length>>8)&0xFF);
+  buf[idx++] = (OMX_U8) (pps_length&0xFF);
+  memcpy(buf+idx, pps, pps_length);
+  idx += pps_length;
+
+#if defined(XDEBUG) && (XDEBUG != 0)
+  LOGI("[avc_dcr] SPS: %02x %02x %02x %02x ... (%u bytes in total)",
+       sps[0], sps[1], sps[2], sps[3], sps_length);
+  LOGI("[avc_dcr] PPS: %02x %02x %02x %02x ... (%u bytes in total)",
+       pps[0], pps[1], pps[2], pps[3], pps_length);
+#endif
+  return idx;
+}
+
+static int make_video_body(OMX_U8 *buf, OMX_U32 dat_len, int key_frame, OMX_U32 composition_time)
+{
+  OMX_U32 idx = 0;
+
+  buf[idx++] = key_frame ? 0x17 : 0x27;
+
+  buf[idx++] = 0x01;
+
+  xutil::put_be24(buf + idx, composition_time);
+  return dat_len;
+}
+
+static int make_asc_body(const OMX_U8 asc[2], OMX_U8 buf[], uint32_t len)
+{
+  buf[0] = 0xAF;
+  buf[1] = 0x00;
+  memcpy(buf + 2, asc, 2);
+  return 1 + 1 + 2;
+}
+
+static int make_audio_body(const OMX_U8 *dat, uint32_t dat_len, OMX_U8 buf[], uint32_t len)
+{
+  buf[0] = 0xAF;
+  buf[1] = 0x01;
+  memcpy(buf + 2, dat, dat_len);
+  return dat_len + 2;
+}
+
+static bool send_rtmp_pkt(OMX_COMPONENTTYPE *omx_comp, int pkttype, uint32_t ts, const OMX_U8 *buf, uint32_t pktsize)
+{
+  omx_rtmpout_component_PrivateType *comp_priv = (omx_rtmpout_component_PrivateType *) omx_comp->pComponentPrivate;
+  ::RTMPPacket rtmp_pkt;
+  RTMPPacket_Reset(&rtmp_pkt);
+  RTMPPacket_Alloc(&rtmp_pkt, pktsize);
+  memcpy(rtmp_pkt.m_body, buf, pktsize);
+  rtmp_pkt.m_packetType = pkttype;
+  rtmp_pkt.m_nChannel = rtmp_common::pkttyp2channel(pkttype);
+  rtmp_pkt.m_headerType = RTMP_PACKET_SIZE_LARGE;
+  rtmp_pkt.m_nTimeStamp = ts;
+  rtmp_pkt.m_hasAbsTimestamp = 0;
+  rtmp_pkt.m_nInfoField2 = comp_priv->rtmp->m_stream_id;
+  rtmp_pkt.m_nBodySize = pktsize;
+  bool retval = RTMP_SendPacket(comp_priv->rtmp, &rtmp_pkt, FALSE);
+  RTMPPacket_Free(&rtmp_pkt);
+  return retval;
 }
