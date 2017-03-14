@@ -19,7 +19,7 @@
 #define VIDEO_BODY_HEADER_LENGTH    16
 #define VIDEO_PAYLOAD_OFFSET        5
 
-#define XDEBUG 1
+#define XDEBUG 0
 
 static OMX_U32 rtmpout_instance = 0;
 

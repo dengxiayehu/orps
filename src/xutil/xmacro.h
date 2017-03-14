@@ -83,7 +83,7 @@
 #define MAP_VAL(i) ((i)->second)
 #define FOR_SET(e,s,i) for(std::set<e>::iterator i=(s).begin();i!=(s).end();i++)
 
-#define FATAL(fmt, ...) do {              \
+#define XFATAL(fmt, ...) do {              \
   fprintf(stderr, fmt, ##__VA_ARGS__);    \
   fprintf(stderr, "\n");                  \
 } while (0)

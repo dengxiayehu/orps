@@ -10,6 +10,7 @@
 #include <user_debug_levels.h>
 
 #include "omxrtmpredirecttest.h"
+#include "flagdefs.h"
 
 static OMX_CALLBACKTYPE rtmpsrccallbacks = { rtmpsrc_event_handler, NULL, NULL };
 static OMX_CALLBACKTYPE rtmpoutcallbacks = { rtmpout_event_handler, NULL, NULL };
@@ -84,6 +85,12 @@ int main(int argc, const char *argv[])
   AppPrivateType *app_priv;
   OMX_ERRORTYPE omx_err;
 
+  rtc::FlagList::SetFlagsFromCommandLine(&argc, argv, true);
+  if (FLAG_help) {
+    rtc::FlagList::Print(NULL, false);
+    return 0;
+  }
+
   xlog::log_add_dst("./omxrtmpredirecttest.log");
 
   sigset_t set;
@@ -116,13 +123,13 @@ int main(int argc, const char *argv[])
   char url[1024];
   omx_err = OMX_GetExtensionIndex(app_priv->rtmpsrchandle, (OMX_STRING) "OMX.ST.index.param.inputurl",
                                   &omx_index);
-  omx_err = OMX_SetParameter(app_priv->rtmpsrchandle, omx_index, (OMX_PTR) "rtmp://127.0.0.1/live/va");
+  omx_err = OMX_SetParameter(app_priv->rtmpsrchandle, omx_index, (OMX_PTR) FLAG_src_rtmp);
   OMX_GetParameter(app_priv->rtmpsrchandle, omx_index, url);
   LOGI("Test rtmpsrc url set to: %s\"", url);
 
   omx_err = OMX_GetExtensionIndex(app_priv->rtmpouthandle, (OMX_STRING) "OMX.ST.index.param.outputurl",
                                   &omx_index);
-  omx_err = OMX_SetParameter(app_priv->rtmpouthandle, omx_index, (OMX_PTR) "rtmp://127.0.0.1/live/xyz");
+  omx_err = OMX_SetParameter(app_priv->rtmpouthandle, omx_index, (OMX_PTR) FLAG_dst_rtmp);
   OMX_GetParameter(app_priv->rtmpouthandle, omx_index, url);
   LOGI("Test rtmpout url set to: %s\"", url);
 
